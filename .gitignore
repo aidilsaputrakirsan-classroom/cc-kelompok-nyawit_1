@@ -14,3 +14,7 @@ dist/
 # IDE
 .vscode/
 .idea/
+
+# Mise
+.mise.lock
+mise.toml
