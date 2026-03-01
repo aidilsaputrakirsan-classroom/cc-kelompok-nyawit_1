@@ -1,7 +1,5 @@
 # ☁️ Cloud App - [SICURE Sistem Information Procurement]
 
-# Cloud App – SICURE (Sistem Information Procurement)
-
 SICURE (Sistem Information Procurement) merupakan aplikasi berbasis cloud yang dirancang untuk membantu organisasi dalam mengelola arus keuangan serta proses pengadaan barang secara digital, terstruktur, dan transparan. Sistem ini memungkinkan pencatatan arus kas masuk dan kas keluar secara real-time, sekaligus mendukung proses pengajuan dan persetujuan pengadaan (procurement) dalam satu platform terintegrasi.
 
 Aplikasi ini ditujukan untuk organisasi seperti himpunan mahasiswa, UKM, komunitas, atau unit kegiatan lainnya yang membutuhkan sistem pencatatan keuangan dan pengadaan yang lebih tertib. Dengan digitalisasi melalui SICURE, proses administrasi menjadi lebih efisien, risiko kesalahan pencatatan dapat diminimalkan, serta transparansi keuangan dapat ditingkatkan.
