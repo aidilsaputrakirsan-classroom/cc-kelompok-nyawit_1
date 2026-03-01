@@ -1,4 +1,4 @@
-# ☁️ Cloud App - [Sistem yg mau dibuat]
+# ☁️ Cloud App - [SICURE Sistem Information Procurement]
 
 Deskripsi aplikasi kita
 ---
