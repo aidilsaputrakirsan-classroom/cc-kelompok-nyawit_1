@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from database import engine, get_db
-from models import Base
+from models import Base, Item
 from schemas import ItemCreate, ItemUpdate, ItemResponse, ItemListResponse
 import crud
 
@@ -65,6 +65,21 @@ def list_items(
     """
     return crud.get_items(db=db, skip=skip, limit=limit, search=search)
 
+@app.get("/items/stats")
+def items_stats(db: Session = Depends(get_db)):
+    """Statistik inventory."""
+    items = db.query(Item).all()
+    if not items:
+        return {"total_items": 0, "total_value": 0, "most_expensive": None, "cheapest": None}
+    
+    return {
+        "total_items": len(items),
+        "total_value": sum(i.price * i.quantity for i in items),
+        "most_expensive": {"name": max(items, key=lambda x: x.price).name, 
+                          "price": max(items, key=lambda x: x.price).price},
+        "cheapest": {"name": min(items, key=lambda x: x.price).name,
+                    "price": min(items, key=lambda x: x.price).price},
+    }
 
 @app.get("/items/{item_id}", response_model=ItemResponse)
 def get_item(item_id: int, db: Session = Depends(get_db)):
@@ -94,7 +109,6 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail=f"Item dengan id={item_id} tidak ditemukan")
     return None
-
 
 # ==================== TEAM INFO ====================
 
