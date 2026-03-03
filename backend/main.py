@@ -102,7 +102,7 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 def team_info():
     """Informasi tim."""
     return {
-        "team": "cloud-team-XX",
+        "team": "cc-kelompok-nyawit_1",
         "members": [
             # TODO: Isi dengan data tim Anda
             {"name": "Nama 1", "nim": "NIM1", "role": "Lead Backend"},
