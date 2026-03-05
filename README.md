@@ -189,7 +189,7 @@ Menjamin keamanan serta akuntabilitas sistem melalui pengaturan hak akses dan pe
 
 [React Frontend] <--HTTP--> [FastAPI Backend] <--SQL--> [PostgreSQL]
 
-_(Diagram ini akan berkembang setiap minggu)_
+##### _(Diagram ini akan berkembang setiap minggu)_
 ---
 
 ## 🚀 Getting Started
@@ -224,7 +224,7 @@ npm run dev
 | Minggu | Target                  | Status |
 |--------|--------------------------|--------|
 | 1      | Setup & Hello World      | ✅     |
-| 2      | REST API + Database      | ⬜     |
+| 2      | REST API + Database      | ✅    |
 | 3      | React Frontend           | ⬜     |
 | 4      | Full-Stack Integration   | ⬜     |
 | 5-7    | Docker & Compose         | ⬜     |
@@ -235,3 +235,375 @@ npm run dev
 
 --- 
 
+## 🚀 API Endpoints Documentation
+
+Bagian ini mendokumentasikan seluruh **REST API endpoint** yang tersedia pada sistem **Inventory Management API**.
+
+API ini dibangun menggunakan:
+
+- FastAPI (framework backend)
+- SQLAlchemy (ORM untuk database)
+- PostgreSQL (database)
+
+Endpoint API digunakan untuk mengelola data inventory seperti:
+
+- menambahkan item
+- melihat daftar item
+- memperbarui item
+- menghapus item
+- melihat statistik inventory
+
+Semua endpoint mengikuti standar **REST API** dengan menggunakan HTTP Method yang berbeda sesuai fungsi operasinya.
+
+---
+
+## 📌 Daftar Endpoint API
+
+| Method | Endpoint | Deskripsi |
+|------|------|------|
+| GET | `/health` | Mengecek apakah server API berjalan dengan baik |
+| POST | `/items` | Menambahkan item baru |
+| GET | `/items` | Mengambil daftar item |
+| GET | `/items/{item_id}` | Mengambil detail item berdasarkan ID |
+| PUT | `/items/{item_id}` | Memperbarui data item |
+| DELETE | `/items/{item_id}` | Menghapus item |
+| GET | `/items/stats` | Menampilkan statistik inventory |
+
+---
+
+# 1️⃣ Health Check Endpoint
+
+### Endpoint
+
+```
+GET /health
+```
+
+### Deskripsi
+
+Endpoint ini digunakan untuk **mengecek apakah server backend berjalan dengan normal**.
+
+Endpoint ini biasanya digunakan untuk:
+
+- monitoring server
+- pengecekan status aplikasi
+- deployment di cloud environment
+
+Jika server aktif maka API akan memberikan response **status healthy**.
+
+### Response Example
+
+```json
+{
+  "status": "healthy",
+  "version": "0.2.0"
+}
+```
+
+### Penjelasan
+
+- `status` menunjukkan kondisi server
+- `version` menunjukkan versi aplikasi backend
+
+---
+
+# 2️⃣ Create Item
+
+### Endpoint
+
+```
+POST /items
+```
+
+### Deskripsi
+
+Endpoint ini digunakan untuk **menambahkan item baru ke dalam database inventory**.
+
+Data yang dikirim akan divalidasi terlebih dahulu menggunakan **Pydantic Schema** sebelum disimpan ke database.
+
+### Request Body
+
+```json
+{
+  "name": "Laptop",
+  "description": "Laptop untuk cloud computing",
+  "price": 15000000,
+  "quantity": 5
+}
+```
+
+### Penjelasan Field
+
+| Field | Tipe Data | Keterangan |
+|------|------|------|
+| name | string | Nama item |
+| description | string | Deskripsi item |
+| price | float | Harga item |
+| quantity | integer | Jumlah stok item |
+
+### Response Example
+
+```json
+{
+  "id": 1,
+  "name": "Laptop",
+  "description": "Laptop untuk cloud computing",
+  "price": 15000000,
+  "quantity": 5,
+  "created_at": "2026-03-05T10:00:00",
+  "updated_at": null
+}
+```
+
+### Penjelasan
+
+Setelah item berhasil dibuat, sistem akan mengembalikan data item lengkap termasuk:
+
+- `id` → ID unik item
+- `created_at` → waktu pembuatan data
+- `updated_at` → waktu terakhir update
+
+---
+
+# 3️⃣ Get All Items
+
+### Endpoint
+
+```
+GET /items
+```
+
+### Deskripsi
+
+Endpoint ini digunakan untuk **mengambil daftar seluruh item yang tersimpan dalam database**.
+
+Endpoint ini juga mendukung fitur:
+
+- pagination
+- pencarian data
+
+Hal ini penting untuk menghindari pengambilan data yang terlalu besar dari database.
+
+### Query Parameters
+
+| Parameter | Fungsi |
+|------|------|
+| skip | jumlah data yang dilewati |
+| limit | jumlah item per halaman |
+| search | pencarian item |
+
+### Contoh Request
+
+```
+GET /items?skip=0&limit=20&search=laptop
+```
+
+### Response Example
+
+```json
+{
+  "total": 1,
+  "items": [
+    {
+      "id": 1,
+      "name": "Laptop",
+      "price": 15000000,
+      "quantity": 5
+    }
+  ]
+}
+```
+
+### Penjelasan
+
+- `total` menunjukkan jumlah total data dalam database
+- `items` berisi daftar item sesuai pagination
+
+---
+
+# 4️⃣ Get Item by ID
+
+### Endpoint
+
+```
+GET /items/{item_id}
+```
+
+### Deskripsi
+
+Endpoint ini digunakan untuk **mengambil detail satu item berdasarkan ID**.
+
+### Contoh Request
+
+```
+GET /items/1
+```
+
+### Response Example
+
+```json
+{
+  "id": 1,
+  "name": "Laptop",
+  "price": 15000000,
+  "quantity": 5
+}
+```
+
+### Error Response
+
+Jika item tidak ditemukan:
+
+```json
+{
+  "detail": "Item tidak ditemukan"
+}
+```
+
+---
+
+# 5️⃣ Update Item
+
+### Endpoint
+
+```
+PUT /items/{item_id}
+```
+
+### Deskripsi
+
+Endpoint ini digunakan untuk **memperbarui data item yang sudah ada di database**.
+
+User hanya perlu mengirim field yang ingin diperbarui.
+
+### Request Body
+
+```json
+{
+  "price": 14000000
+}
+```
+
+### Response Example
+
+```json
+{
+  "id": 1,
+  "name": "Laptop",
+  "price": 14000000,
+  "quantity": 5
+}
+```
+
+---
+
+# 6️⃣ Delete Item
+
+### Endpoint
+
+```
+DELETE /items/{item_id}
+```
+
+### Deskripsi
+
+Endpoint ini digunakan untuk **menghapus item dari database berdasarkan ID**.
+
+### Contoh Request
+
+```
+DELETE /items/1
+```
+
+### Response
+
+Status code:
+
+```
+204 No Content
+```
+
+Artinya item berhasil dihapus dan server tidak mengembalikan response body.
+
+---
+
+# 7️⃣ Inventory Statistics
+
+### Endpoint
+
+```
+GET /items/stats
+```
+
+### Deskripsi
+
+Endpoint ini digunakan untuk **menampilkan statistik inventory** tanpa harus mengambil seluruh data item.
+
+Endpoint ini memberikan ringkasan informasi inventory.
+
+### Data yang Ditampilkan
+
+- total jumlah item
+- total nilai inventory
+- item dengan harga tertinggi
+- item dengan harga terendah
+
+### Response Example
+
+```json
+{
+  "total_items": 3,
+  "total_value": 45000000,
+  "most_expensive": {
+    "name": "Laptop",
+    "price": 15000000
+  },
+  "cheapest": {
+    "name": "Mouse",
+    "price": 200000
+  }
+}
+```
+
+### Penjelasan Perhitungan
+
+Nilai **total_value** dihitung menggunakan rumus:
+
+```
+total_value = price × quantity
+```
+
+Kemudian dijumlahkan untuk seluruh item yang ada dalam database.
+
+---
+
+# 🧪 API Testing
+
+Semua endpoint dapat diuji menggunakan **Swagger UI** yang tersedia pada:
+
+```
+http://localhost:8000/docs
+```
+
+Melalui Swagger UI pengguna dapat:
+
+- melihat seluruh endpoint API
+- mengirim request langsung
+- melihat response API
+- melakukan pengujian endpoint
+
+---
+
+# ✅ Kesimpulan
+
+Sistem API inventory menyediakan fitur utama berupa:
+
+- operasi CRUD item
+- pencarian dan pagination
+- validasi data menggunakan Pydantic
+- statistik inventory melalui endpoint `/items/stats`
+- dokumentasi API interaktif menggunakan Swagger
+
+Dokumentasi ini membantu developer lain memahami cara menggunakan API serta melakukan integrasi dengan sistem frontend atau layanan lainnya.
+
+---
