@@ -13,6 +13,7 @@ function App() {
   const [isConnected, setIsConnected] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [sortType, setSortType] = useState("Terbaru")
 
   // ==================== LOAD DATA ====================
   const loadItems = useCallback(async (search = "") => {
@@ -78,6 +79,14 @@ function App() {
     setEditingItem(null)
   }
 
+  // ==================== SORTING LOGIC ====================
+  const sortedItems = [...items].sort((a, b) => {
+    if (sortType === "Nama") return a.name.localeCompare(b.name)
+    if (sortType === "Harga") return a.price - b.price
+    // Terbaru
+    return new Date(b.created_at || b.id) - new Date(a.created_at || a.id)
+  })
+
   // ==================== RENDER ====================
   return (
     <div style={styles.app}>
@@ -88,9 +97,24 @@ function App() {
           editingItem={editingItem}
           onCancelEdit={handleCancelEdit}
         />
+        
+        <div style={styles.sortContainer}>
+          <label htmlFor="sort" style={{marginRight: "0.5rem", fontWeight: "bold"}}>Urutkan berdasarkan:</label>
+          <select 
+            id="sort" 
+            value={sortType} 
+            onChange={(e) => setSortType(e.target.value)}
+            style={styles.select}
+          >
+            <option value="Terbaru">Terbaru</option>
+            <option value="Nama">Nama</option>
+            <option value="Harga">Harga</option>
+          </select>
+        </div>
+
         <SearchBar onSearch={handleSearch} />
         <ItemList
-          items={items}
+          items={sortedItems}
           onEdit={handleEdit}
           onDelete={handleDelete}
           loading={loading}
@@ -101,6 +125,19 @@ function App() {
 }
 
 const styles = {
+  sortContainer: {
+    marginBottom: "1rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  select: {
+    padding: "0.5rem",
+    borderRadius: "8px",
+    border: "1px solid #ddd",
+    outline: "none",
+    fontSize: "0.95rem",
+  },
   app: {
     minHeight: "100vh",
     backgroundColor: "#f0f2f5",
