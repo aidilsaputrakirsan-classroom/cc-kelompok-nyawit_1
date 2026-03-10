@@ -607,3 +607,23 @@ Sistem API inventory menyediakan fitur utama berupa:
 Dokumentasi ini membantu developer lain memahami cara menggunakan API serta melakukan integrasi dengan sistem frontend atau layanan lainnya.
 
 ---
+
+# 📊 Testing Summary
+
+Seluruh endpoint telah diuji menggunakan Swagger UI dan berfungsi sesuai spesifikasi.
+
+| No | Method | Endpoint | Request Body | HTTP Status | Hasil Pengujian |
+|----|--------|----------|--------------|-------------|----------------|
+| 1 | POST | /items | {name, description, price, quantity} | 201 Created | ✅ Sesuai |
+| 2 | GET | /items | - | 200 OK | ✅ Sesuai |
+| 3 | GET | /items/{item_id} | - | 200 OK | ✅ Sesuai |
+| 4 | PUT | /items/{item_id} | {price} | 200 OK | ✅ Sesuai |
+| 5 | DELETE | /items/{item_id} | - | 204 No Content | ✅ Sesuai |
+| 6 | GET | /items/stats | - | 200 OK | ✅ Sesuai |
+| 7 | GET | /health | - | 200 OK | ✅ Sesuai |
+| 8 | GET | /team | - | 200 OK | ✅ Sesuai |
+
+Semua endpoint telah berhasil diuji dan memberikan response sesuai dengan spesifikasi API.
+
+---
+
