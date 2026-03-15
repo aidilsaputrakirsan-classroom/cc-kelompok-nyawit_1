@@ -225,7 +225,7 @@ npm run dev
 |--------|--------------------------|--------|
 | 1      | Setup & Hello World      | ✅     |
 | 2      | REST API + Database      | ✅    |
-| 3      | React Frontend           | ⬜     |
+| 3      | React Frontend           | ✅     |
 | 4      | Full-Stack Integration   | ⬜     |
 | 5-7    | Docker & Compose         | ⬜     |
 | 8      | UTS Demo                 | ⬜     |
@@ -624,6 +624,29 @@ Seluruh endpoint telah diuji menggunakan Swagger UI dan berfungsi sesuai spesifi
 | 8 | GET | /team | - | 200 OK | ✅ Sesuai |
 
 Semua endpoint telah berhasil diuji dan memberikan response sesuai dengan spesifikasi API.
+
+---
+
+## UI Testing 
+
+Pengujian antarmuka pengguna (UI Testing) dilakukan untuk memastikan bahwa seluruh fitur pada aplikasi Cloud App dapat berjalan dengan baik dan sesuai dengan kebutuhan pengguna.
+
+Pengujian meliputi beberapa skenario utama seperti:
+
+- Koneksi antara frontend dan backend API
+- Menambahkan item baru
+- Menampilkan daftar item
+- Mengurutkan item
+- Mengedit dan memperbarui data item
+- Mencari item menggunakan fitur pencarian
+- Menghapus item
+- Menampilkan kondisi ketika tidak ada data (empty state)
+
+Seluruh hasil pengujian dan dokumentasi lengkap dapat dilihat pada file berikut:
+
+📄 **[UI Test Results](ui-test-results.md)**
+
+Pengujian menunjukkan bahwa seluruh fitur utama aplikasi berjalan dengan baik dan sistem dapat digunakan secara stabil.
 
 ---
 
