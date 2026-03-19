@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 
-function ItemForm({ onSubmit, editingItem, onCancelEdit }) {
+function ItemForm({ onSubmit, editingItem, onCancelEdit, loading = false }) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -78,6 +78,7 @@ function ItemForm({ onSubmit, editingItem, onCancelEdit }) {
               onChange={handleChange}
               placeholder="Contoh: Laptop"
               style={styles.input}
+              disabled={loading}
             />
           </div>
           <div style={styles.field}>
@@ -91,6 +92,7 @@ function ItemForm({ onSubmit, editingItem, onCancelEdit }) {
               min="0"
               step="any"
               style={styles.input}
+              disabled={loading}
             />
           </div>
         </div>
@@ -105,6 +107,7 @@ function ItemForm({ onSubmit, editingItem, onCancelEdit }) {
               onChange={handleChange}
               placeholder="Opsional"
               style={styles.input}
+              disabled={loading}
             />
           </div>
           <div style={{ ...styles.field, maxWidth: "150px" }}>
@@ -116,16 +119,17 @@ function ItemForm({ onSubmit, editingItem, onCancelEdit }) {
               onChange={handleChange}
               min="0"
               style={styles.input}
+              disabled={loading}
             />
           </div>
         </div>
 
         <div style={styles.actions}>
-          <button type="submit" style={styles.btnSubmit}>
-            {editingItem ? "💾 Update Item" : "➕ Tambah Item"}
+          <button type="submit" style={styles.btnSubmit} disabled={loading}>
+            {loading ? "⏳ Menyimpan..." : editingItem ? "💾 Update Item" : "➕ Tambah Item"}
           </button>
           {editingItem && (
-            <button type="button" onClick={onCancelEdit} style={styles.btnCancel}>
+            <button type="button" onClick={onCancelEdit} style={styles.btnCancel} disabled={loading}>
               ✕ Batal Edit
             </button>
           )}
