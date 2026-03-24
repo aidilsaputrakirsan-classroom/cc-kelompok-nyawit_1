@@ -219,6 +219,32 @@ npm run dev
 
 ---
 
+## 🔐 Authentication
+
+Aplikasi ini menggunakan **JWT (JSON Web Token)** untuk autentikasi.
+
+### Alur Autentikasi
+
+1. **Register** — Buat akun baru via `POST /auth/register`
+2. **Login** — Login via `POST /auth/login`, dapatkan `access_token`
+3. **Protected Requests** — Sertakan token di setiap request:
+   ```
+   Authorization: Bearer <access_token>
+   ```
+4. **Logout** — Hapus token dari state frontend (token tidak perlu di-invalidasi di server karena JWT stateless)
+
+### Kebijakan Password
+
+- Minimal 8 karakter
+- Harus mengandung: huruf besar, angka, dan karakter khusus (`@$!%*?&`)
+- Contoh valid: `Passw0rd!`
+
+### Token Expiry
+
+Token berlaku selama **60 menit** (default). Jika expired, user akan diarahkan kembali ke halaman Login.
+
+---
+
 ## 📅 Roadmap
 
 | Minggu | Target                  | Status |
@@ -226,7 +252,7 @@ npm run dev
 | 1      | Setup & Hello World      | ✅     |
 | 2      | REST API + Database      | ✅    |
 | 3      | React Frontend           | ✅     |
-| 4      | Full-Stack Integration   | ⬜     |
+| 4      | Full-Stack Integration + JWT Auth | ✅     |
 | 5-7    | Docker & Compose         | ⬜     |
 | 8      | UTS Demo                 | ⬜     |
 | 9-11   | CI/CD Pipeline           | ⬜     |
@@ -259,15 +285,26 @@ Semua endpoint mengikuti standar **REST API** dengan menggunakan HTTP Method yan
 
 ## 📌 Daftar Endpoint API
 
+### Public Endpoints (tanpa token)
+
 | Method | Endpoint | Deskripsi |
-|------|------|------|
-| GET | `/health` | Mengecek apakah server API berjalan dengan baik |
+|--------|----------|-----------|
+| GET | `/health` | Health check server |
+| POST | `/auth/register` | Registrasi user baru |
+| POST | `/auth/login` | Login, dapatkan JWT token |
+| GET | `/team` | Info tim |
+
+### Protected Endpoints (butuh token)
+
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | `/auth/me` | Profil user yang sedang login |
+| GET | `/items` | Mengambil daftar item dengan pagination & search |
 | POST | `/items` | Menambahkan item baru |
-| GET | `/items` | Mengambil daftar item |
 | GET | `/items/{item_id}` | Mengambil detail item berdasarkan ID |
 | PUT | `/items/{item_id}` | Memperbarui data item |
 | DELETE | `/items/{item_id}` | Menghapus item |
-| GET | `/items/stats` | Menampilkan statistik inventory |
+| GET | `/items/stats` | Statistik inventory |
 
 ---
 
@@ -612,16 +649,19 @@ Dokumentasi ini membantu developer lain memahami cara menggunakan API serta mela
 
 Seluruh endpoint telah diuji menggunakan Swagger UI dan berfungsi sesuai spesifikasi.
 
-| No | Method | Endpoint | Request Body | HTTP Status | Hasil Pengujian |
-|----|--------|----------|--------------|-------------|----------------|
-| 1 | POST | /items | {name, description, price, quantity} | 201 Created | ✅ Sesuai |
-| 2 | GET | /items | - | 200 OK | ✅ Sesuai |
-| 3 | GET | /items/{item_id} | - | 200 OK | ✅ Sesuai |
-| 4 | PUT | /items/{item_id} | {price} | 200 OK | ✅ Sesuai |
-| 5 | DELETE | /items/{item_id} | - | 204 No Content | ✅ Sesuai |
-| 6 | GET | /items/stats | - | 200 OK | ✅ Sesuai |
-| 7 | GET | /health | - | 200 OK | ✅ Sesuai |
-| 8 | GET | /team | - | 200 OK | ✅ Sesuai |
+| No | Method | Endpoint | Request Body | HTTP Status | Auth | Hasil Pengujian |
+|----|--------|----------|--------------|-------------|------|-----------------|
+| 1 | POST | /auth/register | {email, name, password} | 201 Created | ❌ | ✅ Sesuai |
+| 2 | POST | /auth/login | {email, password} | 200 OK | ❌ | ✅ Sesuai |
+| 3 | GET | /auth/me | - | 200 OK | ✅ | ✅ Sesuai |
+| 4 | POST | /items | {name, description, price, quantity} | 201 Created | ✅ | ✅ Sesuai |
+| 5 | GET | /items | - | 200 OK | ✅ | ✅ Sesuai |
+| 6 | GET | /items/{item_id} | - | 200 OK | ✅ | ✅ Sesuai |
+| 7 | PUT | /items/{item_id} | {price} | 200 OK | ✅ | ✅ Sesuai |
+| 8 | DELETE | /items/{item_id} | - | 204 No Content | ✅ | ✅ Sesuai |
+| 9 | GET | /items/stats | - | 200 OK | ✅ | ✅ Sesuai |
+| 10 | GET | /health | - | 200 OK | ❌ | ✅ Sesuai |
+| 11 | GET | /team | - | 200 OK | ❌ | ✅ Sesuai |
 
 Semua endpoint telah berhasil diuji dan memberikan response sesuai dengan spesifikasi API.
 
