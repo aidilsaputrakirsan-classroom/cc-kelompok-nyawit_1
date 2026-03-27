@@ -1,4 +1,5 @@
 import { useState } from "react"
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 function LoginPage({ onLogin, onRegister }) {
   const [isRegister, setIsRegister] = useState(false)
@@ -26,8 +27,8 @@ function LoginPage({ onLogin, onRegister }) {
           setLoading(false)
           return
         }
-        if (formData.password.length < 8) {
-          setError("Password minimal 8 karakter")
+        if (!PASSWORD_REGEX.test(formData.password)) {
+          setError("Password harus minimal 8 karakter, mengandung huruf besar, angka, dan karakter khusus (@$!%*?&)")
           setLoading(false)
           return
         }
@@ -105,6 +106,7 @@ function LoginPage({ onLogin, onRegister }) {
               required
               style={styles.input}
             />
+            {isRegister && <small style={styles.hint}>Min. 8 char, 1 Huruf Besar, 1 Angka, 1 Simbol</small>}
           </div>
 
           <button type="submit" style={styles.btnSubmit} disabled={loading}>
@@ -208,6 +210,12 @@ const styles = {
     marginBottom: "0.5rem",
     fontSize: "0.9rem",
     textAlign: "center",
+  },
+  hint: {
+    fontSize: "0.75rem",
+    color: "#888",
+    marginTop: "0.2rem",
+    fontStyle: "italic",
   },
 }
 
