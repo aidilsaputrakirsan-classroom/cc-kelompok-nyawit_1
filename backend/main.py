@@ -172,7 +172,6 @@ def get_items_stats(
 ):
     """
     Statistik items: total, nilai total, rata-rata harga/quantity, low stock (<10).
-    Membutuhkan autentikasi.
     """
     return crud.get_items_stats(db=db)
 
