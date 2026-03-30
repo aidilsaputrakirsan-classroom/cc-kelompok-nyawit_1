@@ -28,7 +28,8 @@ function authHeaders() {
 async function handleResponse(response) {
   if (response.status === 401) {
     clearToken()
-    throw new Error("UNAUTHORIZED")
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.detail || "unauthorized")
   }
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
