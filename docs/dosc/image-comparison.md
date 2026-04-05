@@ -1,10 +1,12 @@
-# Perbandingan Docker Image Python
+# Perbandingan Docker Image Python :3.12 vs python:3.12-slim vs python:3.12-alpine
 
 ## Hasil Pengujian
 
 Perintah yang digunakan untuk melihat ukuran Docker image:
 
-```docker images```
+```bash
+docker images
+```
 
 | Image | Disk Usage | Content Size |
 |-------|-----------|--------------|
