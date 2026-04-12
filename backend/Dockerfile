@@ -5,8 +5,8 @@
 # 1. Base image — Python 3.12 slim (debian minimal, ~50MB)
 FROM python:3.12-slim
 
-# Install curl for healthcheck and create non-root user
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/* && \
+# Install curl for healthcheck, postgresql-client for pg_isready, and create non-root user
+RUN apt-get update && apt-get install -y curl postgresql-client && rm -rf /var/lib/apt/lists/* && \
     useradd -m appuser
 
 # 2. Set working directory di dalam container
