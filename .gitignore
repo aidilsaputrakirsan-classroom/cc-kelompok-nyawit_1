@@ -1,20 +1,32 @@
-﻿# Python
+# Python
 __pycache__/
 *.pyc
-venv/
+*.pyo
 .env
 
-# Node
-node_modules/
-dist/
+# Virtual environments
+venv/
+.venv/
 
-# Docker
-*.log
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+build/
 
 # IDE
 .vscode/
 .idea/
+*.swp
 
-# Mise
-.mise.lock
-mise.toml
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite3
