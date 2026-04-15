@@ -167,6 +167,7 @@ Menjamin keamanan serta akuntabilitas sistem melalui pengaturan hak akses dan pe
 |------|------|--------|
 | Muchlis Wahyu Saputra | 10231054 | Lead Backend |
 | Ranaya Chintya Mahitsa | 10231078 | Lead Frontend |
+| Andi Adam Firdaus | 10211014 | Lead DevOps  |
 | Ahmad Baihaqi | 10221063 | Lead DevOps  |
 | Az-Zahra Atikah Nurhaliza | 10231022 | Lead QA & Docs |
 
