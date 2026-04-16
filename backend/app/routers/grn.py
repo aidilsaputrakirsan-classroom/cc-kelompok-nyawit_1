@@ -34,7 +34,7 @@ ALLOWED_CONTENT_TYPES = {
     "application/pdf",
 }
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".pdf"}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+MAX_FILE_SIZE = settings.max_upload_bytes  # from config (default 5 MB)
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -43,14 +43,25 @@ def _sanitize_filename(filename: str) -> str:
     - Strip directory components
     - Remove non-alphanumeric chars (except dot, hyphen, underscore)
     - Prepend a UUID to guarantee uniqueness
+    - Limit total length to avoid filesystem limits
     """
     # Take only the basename (strip path traversal)
     name = os.path.basename(filename)
     # Remove any character that is not alphanumeric, dot, hyphen, or underscore
     name = re.sub(r"[^\w.\-]", "_", name)
+    
+    # Split name and extension to handle them separately
+    name_part, ext = os.path.splitext(name)
+    
+    # Limit the name part to prevent exceeding filesystem limits
+    # Leave room for UUID (12 chars) + underscore (1 char) + extension
+    max_name_length = 200  # Conservative limit to stay under 255 char filesystem limit
+    if len(name_part) > max_name_length:
+        name_part = name_part[:max_name_length]
+    
     # Prepend UUID for uniqueness
     unique = uuid.uuid4().hex[:12]
-    return f"{unique}_{name}"
+    return f"{unique}_{name_part}{ext}"
 
 
 async def _validate_and_save(
@@ -84,7 +95,8 @@ async def _validate_and_save(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{label}: Ukuran file melebihi batas maksimum 5MB "
+            detail=f"{label}: Ukuran file melebihi batas maksimum "
+                   f"{settings.MAX_UPLOAD_SIZE_MB}MB "
                    f"({len(content) / (1024*1024):.1f}MB).",
         )
 
@@ -204,3 +216,51 @@ async def submit_grn_documents(
         data=GRNOut.model_validate(grn).model_dump(mode="json"),
         message="Dokumen GRN berhasil di-submit",
     )
+
+
+# ── GET /{grn_id} ─────────────────────────────────────────────────
+@router.get(
+    "/{grn_id}",
+    summary="Get GRN document details by ID",
+)
+async def get_grn_document(
+    grn_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve GRN document details by ID.
+    Only accessible by the requester who submitted the GRN or admin users.
+    """
+    result = await db.execute(
+        select(GRNDocument)
+        .options(
+            selectinload(GRNDocument.purchase_order).selectinload(PurchaseOrder.purchase_requisition)
+        )
+        .where(GRNDocument.id == grn_id)
+    )
+    grn = result.scalar_one_or_none()
+
+    if grn is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="GRN document tidak ditemukan",
+        )
+
+    # Check permissions: only requester who owns it or admins can view
+    po = grn.purchase_order
+    pr = po.purchase_requisition
+    
+    # Check if current user is the requester who submitted this GRN or an admin
+    if current_user.id != grn.requester_id and current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak memiliki akses untuk melihat dokumen GRN ini",
+        )
+
+    return APIResponse(
+        success=True,
+        data=GRNOut.model_validate(grn).model_dump(mode="json"),
+        message="Detail dokumen GRN berhasil diambil",
+    )
+

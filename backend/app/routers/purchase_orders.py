@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.deps import require_role
+from app.core.deps import get_current_user, require_role
 from app.db.session import get_db
 from app.models.enums import PRStatus
 from app.models.purchase_order import PurchaseOrder
@@ -99,6 +99,54 @@ async def issue_purchase_order(
         success=True,
         data=POOut.model_validate(po).model_dump(mode="json"),
         message="Purchase Order berhasil diterbitkan",
+    )
+
+
+# ── GET /{pr_id}/my-po ───────────────────────────────────────────
+@router.get(
+    "/{pr_id}/my-po",
+    summary="Lihat PO untuk PR tertentu (requester)",
+)
+async def get_my_po_for_pr(
+    pr_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Requester dapat melihat PO yang diterbitkan untuk PR miliknya.
+    Hanya requester yang memiliki PR tersebut yang bisa mengakses.
+    """
+    # Verify PR exists and belongs to the requester
+    result = await db.execute(
+        select(PurchaseRequisition).where(
+            PurchaseRequisition.id == pr_id,
+            PurchaseRequisition.requester_id == current_user.id
+        )
+    )
+    pr = result.scalar_one_or_none()
+    
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Requisition tidak ditemukan atau bukan milik Anda",
+        )
+    
+    # Fetch PO for this PR
+    result = await db.execute(
+        select(PurchaseOrder).where(PurchaseOrder.pr_id == pr_id)
+    )
+    po = result.scalar_one_or_none()
+    
+    if po is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Order belum diterbitkan untuk PR ini",
+        )
+    
+    return APIResponse(
+        success=True,
+        data=POOut.model_validate(po).model_dump(mode="json"),
+        message="OK",
     )
 
 

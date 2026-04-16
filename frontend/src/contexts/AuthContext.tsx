@@ -34,10 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("access_token");
     if (token) {
       api
-        .get<User | APIResponse<User>>("/auth/me")
+        .get<APIResponse<User>>("/auth/me")
         .then((res) => {
-          const currentUser = "data" in res.data ? res.data.data : res.data;
-          setUser(currentUser);
+          setUser(res.data.data);
         })
         .catch(() => {
           localStorage.removeItem("access_token");
@@ -70,11 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err: unknown) {
         const msg =
-          (err as { response?: { data?: { message?: string; detail?: string } } })
-            ?.response?.data?.message ??
-          (err as { response?: { data?: { message?: string; detail?: string } } })
-            ?.response?.data?.detail ??
-          "Login gagal. Periksa email dan password.";
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message ?? "Login gagal. Periksa email dan password.";
         setError(msg);
       } finally {
         setLoading(false);

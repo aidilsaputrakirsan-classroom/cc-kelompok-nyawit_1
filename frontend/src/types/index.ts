@@ -14,11 +14,20 @@ export interface TokenResponse {
 
 export interface PRLineItem {
   id: number;
+  pr_id: number;
   item_name: string;
   quantity: number;
   unit_of_measure: string;
   estimated_unit_price: number;
   subtotal: number;
+}
+
+/** Line item shape for creating a PR (no id/pr_id/subtotal) */
+export interface PRLineItemInput {
+  item_name: string;
+  quantity: number;
+  unit_of_measure: string;
+  estimated_unit_price: number;
 }
 
 export type PRStatus =
@@ -36,7 +45,7 @@ export interface PurchaseRequisition {
   id: number;
   pr_number: string;
   title: string;
-  justification: string;
+  justification: string | null;
   status: PRStatus;
   total_amount: number;
   created_at: string;
@@ -66,10 +75,11 @@ export interface GRNDocument {
   verification_note: string | null;
 }
 
+/** Matches backend PaginationMeta (field: pagination, total_items) */
 export interface PaginationMeta {
   page: number;
   per_page: number;
-  total: number;
+  total_items: number;
   total_pages: number;
 }
 
@@ -79,9 +89,29 @@ export interface APIResponse<T> {
   data: T;
 }
 
+/** Backend returns { pagination: ... } not { meta: ... } */
 export interface PaginatedResponse<T> {
   success: boolean;
   message: string;
   data: T[];
-  meta: PaginationMeta;
+  pagination: PaginationMeta;
+}
+
+/** Payload for creating a PR */
+export interface PRCreatePayload {
+  title: string;
+  justification: string;
+  items: PRLineItemInput[];
+}
+
+/** Payload for admin review (approve/reject) */
+export interface PRReviewPayload {
+  status: "APPROVED" | "REJECTED";
+  approval_note: string;
+}
+
+/** Payload for GRN verification */
+export interface GRNVerifyPayload {
+  status: "VERIFIED" | "CLOSED";
+  verification_note: string;
 }

@@ -1,12 +1,8 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
-import api from "../../services/api";
+import { useProcurement } from "../../contexts/ProcurementContext";
 import StatusBadge from "../../components/StatusBadge";
-import type {
-  PurchaseRequisition,
-  PaginatedResponse,
-  PRStatus,
-} from "../../types";
+import type { PurchaseRequisition, PRStatus } from "../../types";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "Semua Status" },
@@ -59,30 +55,15 @@ function getActions(pr: PurchaseRequisition) {
 }
 
 export default function AdminDashboard() {
-  const [prs, setPrs] = useState<PurchaseRequisition[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { adminPrs, adminPrsLoading, fetchAdminPRs } = useProcurement();
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
 
-  const fetchData = (status?: string) => {
-    setLoading(true);
-    setError(null);
-    const params: Record<string, string | number> = { page: 1, per_page: 50 };
-    if (status) params.status = status;
-
-    api
-      .get<PaginatedResponse<PurchaseRequisition>>(
-        "/requisitions/admin/",
-        { params }
-      )
-      .then((res) => setPrs(res.data.data))
-      .catch(() => setError("Gagal memuat data requisition."))
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    fetchData(statusFilter);
-  }, [statusFilter]);
+    fetchAdminPRs(statusFilter).catch(() =>
+      setError("Gagal memuat data requisition.")
+    );
+  }, [statusFilter, fetchAdminPRs]);
 
   const handleFilterChange = (e: ChangeEvent<HTMLSelectElement>) => {
     setStatusFilter(e.target.value);
@@ -110,9 +91,9 @@ export default function AdminDashboard() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {loading ? (
+      {adminPrsLoading ? (
         <p className="text-muted">Memuat data...</p>
-      ) : prs.length === 0 ? (
+      ) : adminPrs.length === 0 ? (
         <div className="empty-state">
           <p>Tidak ada Purchase Requisition{statusFilter ? " dengan status ini" : ""}.</p>
         </div>
@@ -122,8 +103,8 @@ export default function AdminDashboard() {
             <thead>
               <tr>
                 <th>No. PR</th>
-                <th>Judul</th>
                 <th>Requester</th>
+                <th>Judul</th>
                 <th>Total</th>
                 <th>Status</th>
                 <th>Tanggal</th>
@@ -131,11 +112,11 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {prs.map((pr) => (
+              {adminPrs.map((pr) => (
                 <tr key={pr.id}>
                   <td className="font-mono">{pr.pr_number}</td>
-                  <td>{pr.title}</td>
                   <td>ID-{pr.requester_id}</td>
+                  <td>{pr.title}</td>
                   <td className="text-right">
                     {new Intl.NumberFormat("id-ID", {
                       style: "currency",

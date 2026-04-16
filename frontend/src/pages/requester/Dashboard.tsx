@@ -1,23 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../../services/api";
+import { useProcurement } from "../../contexts/ProcurementContext";
 import StatusBadge from "../../components/StatusBadge";
-import type { PurchaseRequisition, PaginatedResponse } from "../../types";
 
 export default function RequesterDashboard() {
-  const [prs, setPrs] = useState<PurchaseRequisition[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { prs, prsLoading, fetchMyPRs } = useProcurement();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .get<PaginatedResponse<PurchaseRequisition>>("/requisitions/", {
-        params: { page: 1, per_page: 50 },
-      })
-      .then((res) => setPrs(res.data.data))
-      .catch(() => setError("Gagal memuat data requisition."))
-      .finally(() => setLoading(false));
-  }, []);
+    fetchMyPRs().catch(() => setError("Gagal memuat data requisition."));
+  }, [fetchMyPRs]);
 
   return (
     <div className="page">
@@ -30,7 +22,7 @@ export default function RequesterDashboard() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {loading ? (
+      {prsLoading ? (
         <p className="text-muted">Memuat data...</p>
       ) : prs.length === 0 ? (
         <div className="empty-state">
