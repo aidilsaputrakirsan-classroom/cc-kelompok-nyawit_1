@@ -95,21 +95,21 @@
 }
 
 .badge-success {
-  background: rgba(39, 103, 73, 0.1);
-  color: var(--color-success);
-  border: 1px solid rgba(39, 103, 73, 0.3);
+  background: rgba(30, 58, 95, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(30, 58, 95, 0.3);
 }
 
 .badge-warning {
-  background: rgba(151, 90, 22, 0.1);
-  color: var(--color-warning);
-  border: 1px solid rgba(151, 90, 22, 0.3);
+  background: rgba(30, 58, 95, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(30, 58, 95, 0.3);
 }
 
 .badge-danger {
-  background: rgba(155, 44, 44, 0.1);
-  color: var(--color-danger);
-  border: 1px solid rgba(155, 44, 44, 0.3);
+  background: rgba(30, 58, 95, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(30, 58, 95, 0.3);
 }
 
 .badge-info {
@@ -244,31 +244,17 @@
   color: var(--color-text-muted);
 }
 
-.stat-card.success {
-  border-top-color: var(--color-success);
-}
-
-.stat-card.success .stat-card-icon {
-  background: rgba(39, 103, 73, 0.1);
-  color: var(--color-success);
-}
-
-.stat-card.warning {
-  border-top-color: var(--color-warning);
-}
-
-.stat-card.warning .stat-card-icon {
-  background: rgba(151, 90, 22, 0.1);
-  color: var(--color-warning);
-}
-
+.stat-card.success,
+.stat-card.warning,
 .stat-card.danger {
-  border-top-color: var(--color-danger);
+  border-top-color: var(--color-primary);
 }
 
+.stat-card.success .stat-card-icon,
+.stat-card.warning .stat-card-icon,
 .stat-card.danger .stat-card-icon {
-  background: rgba(155, 44, 44, 0.1);
-  color: var(--color-danger);
+  background: rgba(30, 58, 95, 0.1);
+  color: var(--color-primary);
 }
 
 /* ===== Timeline (Horizontal) ===== */
@@ -332,7 +318,7 @@
 }
 
 .timeline-step.timeline-done:not(:last-child)::after {
-  background: var(--color-success);
+  background: var(--color-primary);
 }
 
 /* Dot */
@@ -371,13 +357,13 @@
 
 /* ── Done state ── */
 .timeline-done .timeline-dot {
-  background: var(--color-success);
-  border-color: var(--color-success);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 
 .timeline-done .timeline-label {
-  color: var(--color-success);
+  color: var(--color-primary);
   font-weight: 700;
 }
 
@@ -415,14 +401,14 @@
 
 /* ── Rejected state ── */
 .timeline-rejected .timeline-dot {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  box-shadow: 0 0 0 4px rgba(155, 44, 44, 0.12);
+  background: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+  box-shadow: 0 0 0 4px rgba(45, 55, 72, 0.1);
   color: #fff;
 }
 
 .timeline-rejected .timeline-label {
-  color: var(--color-danger);
+  color: var(--color-text-muted);
   font-weight: 700;
 }
 

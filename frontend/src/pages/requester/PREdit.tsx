@@ -1,9 +1,14 @@
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { useToast } from "../../contexts/ToastContext";
 import { useProcurement } from "../../contexts/ProcurementContext";
-import type { PRLineItemInput, PRCreatePayload, APIResponse, PurchaseRequisition } from "../../types";
+import type {
+  PRLineItemInput,
+  PRCreatePayload,
+  APIResponse,
+  PurchaseRequisition,
+} from "../../types";
 
 const EMPTY_ITEM: PRLineItemInput = {
   item_name: "",
@@ -12,7 +17,8 @@ const EMPTY_ITEM: PRLineItemInput = {
   estimated_unit_price: 0,
 };
 
-export default function RequesterPRNew() {
+export default function RequesterPREdit() {
+  const { id } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { invalidate } = useProcurement();
@@ -22,9 +28,44 @@ export default function RequesterPRNew() {
   const [items, setItems] = useState<PRLineItemInput[]>([{ ...EMPTY_ITEM }]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // ── Line item helpers ──────────────────────────────────────────
-  const updateItem = (index: number, field: keyof PRLineItemInput, value: string | number) => {
+  // Load existing PR data
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    api
+      .get<APIResponse<PurchaseRequisition>>(`/requisitions/${id}`)
+      .then((res) => {
+        const pr = res.data.data;
+        if (pr.status !== "SUBMITTED") {
+          setLoadError("Hanya PR dengan status SUBMITTED yang bisa diedit.");
+          return;
+        }
+        setTitle(pr.title);
+        setJustification(pr.justification || "");
+        if (pr.line_items && pr.line_items.length > 0) {
+          setItems(
+            pr.line_items.map((item) => ({
+              item_name: item.item_name,
+              quantity: item.quantity,
+              unit_of_measure: item.unit_of_measure,
+              estimated_unit_price: item.estimated_unit_price,
+            }))
+          );
+        }
+      })
+      .catch(() => setLoadError("Gagal memuat data PR."))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  // Line item helpers
+  const updateItem = (
+    index: number,
+    field: keyof PRLineItemInput,
+    value: string | number
+  ) => {
     setItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
     );
@@ -35,7 +76,7 @@ export default function RequesterPRNew() {
   };
 
   const removeItem = (index: number) => {
-    if (items.length <= 1) return; // minimal 1 item
+    if (items.length <= 1) return;
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -45,7 +86,7 @@ export default function RequesterPRNew() {
   const getTotal = () =>
     items.reduce((sum, item) => sum + getSubtotal(item), 0);
 
-  // ── Validation ─────────────────────────────────────────────────
+  // Validation
   const validate = (): string[] => {
     const errs: string[] = [];
     if (!title.trim()) errs.push("Judul PR wajib diisi.");
@@ -54,10 +95,13 @@ export default function RequesterPRNew() {
 
     items.forEach((item, i) => {
       const n = i + 1;
-      if (!item.item_name.trim()) errs.push(`Item #${n}: Nama item wajib diisi.`);
+      if (!item.item_name.trim())
+        errs.push(`Item #${n}: Nama item wajib diisi.`);
       if (item.quantity <= 0) errs.push(`Item #${n}: Quantity harus > 0.`);
-      if (!item.unit_of_measure.trim()) errs.push(`Item #${n}: Satuan wajib diisi.`);
-      if (item.estimated_unit_price <= 0) errs.push(`Item #${n}: Harga estimasi harus > 0.`);
+      if (!item.unit_of_measure.trim())
+        errs.push(`Item #${n}: Satuan wajib diisi.`);
+      if (item.estimated_unit_price <= 0)
+        errs.push(`Item #${n}: Harga estimasi harus > 0.`);
     });
 
     if (errs.length === 0 && getTotal() <= 0) {
@@ -67,7 +111,7 @@ export default function RequesterPRNew() {
     return errs;
   };
 
-  // ── Submit ─────────────────────────────────────────────────────
+  // Submit update
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const validationErrors = validate();
@@ -90,17 +134,20 @@ export default function RequesterPRNew() {
     };
 
     try {
-      await api.post<APIResponse<PurchaseRequisition>>("/requisitions/", payload);
-      showToast("success", "Purchase Requisition berhasil dibuat!");
+      await api.put<APIResponse<PurchaseRequisition>>(
+        `/requisitions/${id}`,
+        payload
+      );
+      showToast("success", "Purchase Requisition berhasil diperbarui!");
       invalidate();
-      navigate("/requester/dashboard");
+      navigate(`/requester/pr/${id}`);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { detail?: string; message?: string } } })
           ?.response?.data?.detail ??
         (err as { response?: { data?: { message?: string } } })?.response?.data
           ?.message ??
-        "Gagal membuat Purchase Requisition.";
+        "Gagal memperbarui Purchase Requisition.";
       showToast("error", msg);
     } finally {
       setSubmitting(false);
@@ -114,11 +161,15 @@ export default function RequesterPRNew() {
       minimumFractionDigits: 0,
     }).format(val);
 
+  if (loading) return <p className="text-muted">Memuat data PR...</p>;
+  if (loadError)
+    return <div className="alert alert-error">{loadError}</div>;
+
   return (
     <div className="page">
       <div className="page-header">
-        <h2>Buat Purchase Requisition Baru</h2>
-        <Link to="/requester/dashboard" className="btn btn-outline">
+        <h2>Edit Purchase Requisition</h2>
+        <Link to={`/requester/pr/${id}`} className="btn btn-outline">
           &larr; Kembali
         </Link>
       </div>
@@ -164,7 +215,11 @@ export default function RequesterPRNew() {
         <div className="form-card">
           <div className="form-card-header">
             <h3>List Items</h3>
-            <button type="button" className="btn btn-sm btn-primary" onClick={addItem}>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={addItem}
+            >
               + Tambah Item
             </button>
           </div>
@@ -178,7 +233,9 @@ export default function RequesterPRNew() {
                   <th style={{ width: "90px" }}>Qty</th>
                   <th style={{ width: "100px" }}>Satuan</th>
                   <th style={{ width: "160px" }}>Harga Estimasi</th>
-                  <th style={{ width: "140px" }} className="text-right">Subtotal</th>
+                  <th style={{ width: "140px" }} className="text-right">
+                    Subtotal
+                  </th>
                   <th style={{ width: "50px" }}></th>
                 </tr>
               </thead>
@@ -190,7 +247,9 @@ export default function RequesterPRNew() {
                       <input
                         type="text"
                         value={item.item_name}
-                        onChange={(e) => updateItem(index, "item_name", e.target.value)}
+                        onChange={(e) =>
+                          updateItem(index, "item_name", e.target.value)
+                        }
                         placeholder="Nama item"
                         className="input-inline"
                       />
@@ -200,7 +259,13 @@ export default function RequesterPRNew() {
                         type="number"
                         min={1}
                         value={item.quantity}
-                        onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 0)}
+                        onChange={(e) =>
+                          updateItem(
+                            index,
+                            "quantity",
+                            parseInt(e.target.value) || 0
+                          )
+                        }
                         className="input-inline input-number"
                       />
                     </td>
@@ -208,7 +273,13 @@ export default function RequesterPRNew() {
                       <input
                         type="text"
                         value={item.unit_of_measure}
-                        onChange={(e) => updateItem(index, "unit_of_measure", e.target.value)}
+                        onChange={(e) =>
+                          updateItem(
+                            index,
+                            "unit_of_measure",
+                            e.target.value
+                          )
+                        }
                         placeholder="pcs"
                         className="input-inline"
                       />
@@ -220,7 +291,11 @@ export default function RequesterPRNew() {
                         step="any"
                         value={item.estimated_unit_price}
                         onChange={(e) =>
-                          updateItem(index, "estimated_unit_price", parseFloat(e.target.value) || 0)
+                          updateItem(
+                            index,
+                            "estimated_unit_price",
+                            parseFloat(e.target.value) || 0
+                          )
                         }
                         className="input-inline input-number"
                       />
@@ -244,10 +319,17 @@ export default function RequesterPRNew() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={5} className="text-right" style={{ fontWeight: 700 }}>
+                  <td
+                    colSpan={5}
+                    className="text-right"
+                    style={{ fontWeight: 700 }}
+                  >
                     Total Estimasi
                   </td>
-                  <td className="text-right font-mono" style={{ fontWeight: 700 }}>
+                  <td
+                    className="text-right font-mono"
+                    style={{ fontWeight: 700 }}
+                  >
                     {formatCurrency(getTotal())}
                   </td>
                   <td></td>
@@ -259,7 +341,7 @@ export default function RequesterPRNew() {
 
         {/* Submit */}
         <div className="form-actions">
-          <Link to="/requester/dashboard" className="btn btn-outline">
+          <Link to={`/requester/pr/${id}`} className="btn btn-outline">
             Batal
           </Link>
           <button
@@ -267,7 +349,7 @@ export default function RequesterPRNew() {
             className="btn btn-primary"
             disabled={submitting}
           >
-            {submitting ? "Mengirim..." : "Submit Requisition"}
+            {submitting ? "Menyimpan..." : "Simpan Perubahan"}
           </button>
         </div>
       </form>

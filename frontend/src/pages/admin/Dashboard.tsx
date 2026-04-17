@@ -26,7 +26,7 @@ function getActions(pr: PurchaseRequisition) {
     actions.push({
       label: "Review",
       to: `/admin/pr/${pr.id}`,
-      variant: "btn-warning",
+      variant: "btn-primary",
     });
   }
   if (pr.status === "APPROVED") {
@@ -40,7 +40,7 @@ function getActions(pr: PurchaseRequisition) {
     actions.push({
       label: "Verify GRN",
       to: `/admin/pr/${pr.id}`,
-      variant: "btn-success",
+      variant: "btn-primary",
     });
   }
 
@@ -137,36 +137,7 @@ export default function AdminDashboard() {
     preventDefault: false,
   });
 
-  const handleExportCSV = () => {
-    const headers = ["No. PR", "Requester", "Judul", "Total", "Status", "Tanggal"];
-    const csvData = filteredPRs.map((pr) => [
-      pr.pr_number,
-      `ID-${pr.requester_id}`,
-      pr.title,
-      pr.total_amount,
-      pr.status,
-      new Date(pr.created_at).toLocaleDateString("id-ID"),
-    ]);
 
-    const csvContent = [
-      headers.join(","),
-      ...csvData.map((row) => row.join(",")),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `purchase-requisitions-${new Date().toISOString().split("T")[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   return (
     <div className="page">
@@ -187,12 +158,6 @@ export default function AdminDashboard() {
               ))}
             </select>
           </div>
-          <button className="btn btn-outline" onClick={handleExportCSV} disabled={filteredPRs.length === 0}>
-            📥 Export CSV
-          </button>
-          <button className="btn btn-outline" onClick={handlePrint} disabled={filteredPRs.length === 0}>
-            🖨️ Print
-          </button>
         </div>
       </div>
 
@@ -215,9 +180,7 @@ export default function AdminDashboard() {
               Clear
             </button>
           )}
-          <span style={{ fontSize: "0.875rem", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
-            Tekan <kbd className="kbd">/</kbd> untuk fokus
-          </span>
+
         </div>
       )}
 
@@ -232,13 +195,11 @@ export default function AdminDashboard() {
           <StatsCard
             label="Pending Review"
             value={stats.pending}
-            variant="warning"
             icon="⏳"
           />
           <StatsCard
             label="Approved"
             value={stats.approved}
-            variant="success"
             icon="✓"
           />
           <StatsCard

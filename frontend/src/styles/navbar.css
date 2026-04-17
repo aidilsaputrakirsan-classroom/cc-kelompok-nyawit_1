@@ -107,8 +107,8 @@
 }
 
 .nav-role-admin {
-  background: rgba(151, 90, 22, 0.08);
-  color: var(--color-warning);
+  background: rgba(30, 58, 95, 0.08);
+  color: var(--color-primary);
 }
 
 /* ── User Button ── */
@@ -229,12 +229,12 @@
 }
 
 .nav-dropdown-logout {
-  color: var(--color-danger);
+  color: var(--color-text-secondary);
 }
 
 .nav-dropdown-logout:hover {
-  background: #fef2f2;
-  color: var(--color-danger-hover);
+  background: var(--color-surface-alt);
+  color: var(--color-primary);
 }
 
 /* ── Hamburger (mobile only) ── */
@@ -350,15 +350,16 @@
   margin-top: var(--spacing-xs);
   font-size: 0.9375rem;
   font-weight: 500;
-  color: var(--color-danger);
+  color: var(--color-text-secondary);
   background: none;
-  border: 1px solid rgba(155, 44, 44, 0.2);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius);
   cursor: pointer;
   transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .nav-mobile-logout:hover {
-  background: #fef2f2;
-  border-color: var(--color-danger);
+  background: var(--color-surface-alt);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }

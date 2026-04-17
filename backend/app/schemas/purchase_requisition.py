@@ -19,6 +19,14 @@ class PRCreate(BaseModel):
     items: list[ItemSchema] = Field(..., min_length=1, description="At least one line item required")
 
 
+class PRUpdate(BaseModel):
+    """Payload to update an existing Purchase Requisition (only when SUBMITTED)."""
+
+    title: str = Field(..., min_length=1, max_length=255)
+    justification: str | None = Field(None, max_length=2000)
+    items: list[ItemSchema] = Field(..., min_length=1, description="At least one line item required")
+
+
 class PRStatusUpdate(BaseModel):
     """Payload for admin to transition PR status (approve / reject)."""
 

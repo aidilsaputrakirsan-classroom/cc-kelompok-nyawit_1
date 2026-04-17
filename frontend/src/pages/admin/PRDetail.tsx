@@ -359,7 +359,7 @@ export default function AdminPRDetail() {
       {pr.line_items && pr.line_items.length > 0 && (
         <div className="detail-card">
           <div className="line-items-header">
-            <h3>Line Items</h3>
+            <h3>List Items</h3>
             <span className="line-items-count">{pr.line_items.length} item</span>
           </div>
           <div className="table-wrapper">
@@ -475,7 +475,7 @@ export default function AdminPRDetail() {
         {canReview && (
           <>
             <button
-              className="btn btn-success"
+              className="btn btn-primary"
               onClick={() => {
                 setReviewAction("APPROVED");
                 setReviewNote("");
@@ -485,7 +485,7 @@ export default function AdminPRDetail() {
               Approve
             </button>
             <button
-              className="btn btn-danger"
+              className="btn btn-outline"
               onClick={() => {
                 setReviewAction("REJECTED");
                 setReviewNote("");
@@ -506,7 +506,7 @@ export default function AdminPRDetail() {
         )}
         {canVerifyGRN && (
           <button
-            className="btn btn-success"
+            className="btn btn-primary"
             onClick={() => {
               setVerifyNote("");
               setShowVerifyModal(true);
@@ -568,7 +568,7 @@ export default function AdminPRDetail() {
                 </button>
                 <button
                   type="submit"
-                  className={`btn ${reviewAction === "APPROVED" ? "btn-success" : "btn-danger"}`}
+                  className="btn btn-primary"
                   disabled={reviewSubmitting}
                 >
                   {reviewSubmitting
@@ -690,7 +690,7 @@ export default function AdminPRDetail() {
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-success"
+                  className="btn btn-primary"
                   disabled={verifySubmitting}
                 >
                   {verifySubmitting
