@@ -15,6 +15,13 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1)
 
 
+class RegisterRequesterRequest(BaseModel):
+    """Public registration — only for requester role."""
+    email: EmailStr
+    password: str = Field(..., min_length=8, description="Minimal 8 karakter")
+    full_name: str = Field(..., min_length=1, max_length=255)
+
+
 # ── Response ───────────────────────────────────────────────────────
 class TokenResponse(BaseModel):
     """Returned after successful login."""

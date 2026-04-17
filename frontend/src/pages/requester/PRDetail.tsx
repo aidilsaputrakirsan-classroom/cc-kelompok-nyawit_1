@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { useToast } from "../../contexts/ToastContext";
+import { useProcurement } from "../../contexts/ProcurementContext";
 import StatusBadge from "../../components/StatusBadge";
 import type {
   PurchaseRequisition,
@@ -29,7 +30,9 @@ function getTimelineIndex(status: PRStatus): number {
 
 export default function RequesterPRDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { showToast } = useToast();
+  const { invalidate } = useProcurement();
 
   const [pr, setPr] = useState<PurchaseRequisition | null>(null);
   const [po, setPo] = useState<PurchaseOrder | null>(null);
@@ -41,6 +44,10 @@ export default function RequesterPRDetail() {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Delete confirmation state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -107,6 +114,24 @@ export default function RequesterPRDetail() {
       showToast("error", msg);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/requisitions/${id}`);
+      showToast("success", "Purchase Requisition berhasil dibatalkan dan dihapus.");
+      invalidate();
+      navigate("/requester/dashboard");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail ?? "Gagal membatalkan Purchase Requisition.";
+      showToast("error", msg);
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -255,7 +280,7 @@ export default function RequesterPRDetail() {
       {pr.line_items && pr.line_items.length > 0 && (
         <div className="detail-card">
           <div className="line-items-header">
-            <h3>Line Items</h3>
+            <h3>List Items</h3>
             <span className="line-items-count">{pr.line_items.length} item</span>
           </div>
           <div className="table-wrapper">
@@ -296,6 +321,67 @@ export default function RequesterPRDetail() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Edit & Cancel Actions (only when SUBMITTED) */}
+      {pr.status === "SUBMITTED" && (
+        <div className="action-bar" style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+          <button
+            className="btn btn-outline"
+            style={{ borderColor: "var(--color-danger, #dc3545)", color: "var(--color-danger, #dc3545)" }}
+            onClick={() => setShowDeleteModal(true)}
+          >
+            Batalkan PR
+          </button>
+          <Link to={`/requester/pr/${id}/edit`} className="btn btn-primary">
+            Edit PR
+          </Link>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Konfirmasi Pembatalan</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Apakah Anda yakin ingin membatalkan dan menghapus PR{" "}
+                <strong>{pr.pr_number}</strong>?
+              </p>
+              <p className="text-muted" style={{ marginTop: "0.5rem" }}>
+                Tindakan ini tidak dapat dibatalkan. PR beserta semua item di dalamnya akan dihapus secara permanen.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ backgroundColor: "var(--color-danger, #dc3545)", borderColor: "var(--color-danger, #dc3545)" }}
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Menghapus..." : "Ya, Batalkan PR"}
+              </button>
+            </div>
           </div>
         </div>
       )}

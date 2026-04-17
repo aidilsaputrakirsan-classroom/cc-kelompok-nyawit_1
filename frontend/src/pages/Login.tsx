@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
@@ -49,6 +50,10 @@ export default function Login() {
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? "Memproses..." : "Login"}
           </button>
+
+          <p className="register-link">
+            Belum punya akun? <Link to="/register">Daftar di sini</Link>
+          </p>
         </form>
       </div>
     </div>

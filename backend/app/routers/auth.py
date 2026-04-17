@@ -1,9 +1,10 @@
 """
 Authentication router — register & login endpoints.
 
-POST /api/v1/auth/register  → admin-only, create new user
-POST /api/v1/auth/login     → return JWT access token
-GET  /api/v1/auth/me        → return current authenticated user
+POST /api/v1/auth/register            → admin-only, create new user
+POST /api/v1/auth/register-requester  → public, self-register as requester
+POST /api/v1/auth/login               → return JWT access token
+GET  /api/v1/auth/me                  → return current authenticated user
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,8 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, require_role
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
+from app.models.enums import UserRole
 from app.models.user import User
-from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
+from app.schemas.auth import LoginRequest, RegisterRequesterRequest, TokenResponse, UserResponse
 from app.schemas.user import UserCreate
 from app.schemas.common import APIResponse
 
@@ -60,6 +62,47 @@ async def register(
         success=True,
         data=user_response.model_dump(),
         message="User berhasil dibuat"
+    )
+
+
+# ── POST /register-requester ─────────────────────────────────────
+@router.post(
+    "/register-requester",
+    response_model=APIResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register mandiri sebagai requester (public)",
+)
+async def register_requester(
+    body: RegisterRequesterRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Endpoint publik untuk registrasi mandiri.
+    Role otomatis di-set sebagai **requester**.
+    """
+    # Check duplicate email
+    existing = await db.execute(select(User).where(User.email == body.email))
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email sudah terdaftar",
+        )
+
+    user = User(
+        email=body.email,
+        hashed_password=hash_password(body.password),
+        full_name=body.full_name,
+        role=UserRole.REQUESTER,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    user_response = UserResponse.model_validate(user)
+    return APIResponse(
+        success=True,
+        data=user_response.model_dump(),
+        message="Registrasi berhasil! Silakan login.",
     )
 
 

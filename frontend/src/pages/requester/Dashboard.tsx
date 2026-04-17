@@ -75,47 +75,13 @@ export default function RequesterDashboard() {
     preventDefault: false,
   });
 
-  const handleExportCSV = () => {
-    const headers = ["No. PR", "Judul", "Total", "Status", "Tanggal"];
-    const csvData = filteredPRs.map((pr) => [
-      pr.pr_number,
-      pr.title,
-      pr.total_amount,
-      pr.status,
-      new Date(pr.created_at).toLocaleDateString("id-ID"),
-    ]);
 
-    const csvContent = [
-      headers.join(","),
-      ...csvData.map((row) => row.join(",")),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `my-requisitions-${new Date().toISOString().split("T")[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   return (
     <div className="page">
       <div className="page-header">
         <h2>My Purchase Requisitions</h2>
         <div style={{ display: "flex", gap: "var(--spacing-md)", alignItems: "center" }}>
-          <button className="btn btn-outline" onClick={handleExportCSV} disabled={filteredPRs.length === 0}>
-            📥 Export CSV
-          </button>
-          <button className="btn btn-outline" onClick={handlePrint} disabled={filteredPRs.length === 0}>
-            🖨️ Print
-          </button>
           <Link to="/requester/pr/new" className="btn btn-primary">
             + Buat Requisition
           </Link>
@@ -143,9 +109,7 @@ export default function RequesterDashboard() {
               Clear
             </button>
           )}
-          <span style={{ fontSize: "0.875rem", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
-            Tekan <kbd className="kbd">/</kbd> untuk fokus
-          </span>
+
         </div>
       )}
 
@@ -160,19 +124,16 @@ export default function RequesterDashboard() {
           <StatsCard
             label="In Progress"
             value={stats.inProgress}
-            variant="warning"
             icon="⏳"
           />
           <StatsCard
             label="PO Issued"
             value={stats.poIssued}
-            variant="default"
             icon="📄"
           />
           <StatsCard
             label="Completed"
             value={stats.completed}
-            variant="success"
             icon="✨"
           />
         </div>

@@ -22,7 +22,7 @@ from app.models.purchase_requisition import PurchaseRequisition
 from app.models.user import User
 from app.schemas.common import APIResponse, PaginatedResponse, PaginationMeta
 from app.schemas.pr_line_item import ItemOut
-from app.schemas.purchase_requisition import PRCreate, PROut
+from app.schemas.purchase_requisition import PRCreate, PROut, PRUpdate
 
 router = APIRouter(prefix="/api/v1/requisitions", tags=["requisitions"])
 
@@ -181,4 +181,130 @@ async def get_requisition_detail(
         success=True,
         data=PROut.model_validate(pr).model_dump(mode="json"),
         message="OK",
+    )
+
+
+# ── PUT /{id} ─────────────────────────────────────────────────────
+@router.put(
+    "/{pr_id}",
+    summary="Edit PR yang masih SUBMITTED",
+)
+async def update_requisition(
+    pr_id: int,
+    body: PRUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Requester mengedit PR yang masih berstatus SUBMITTED.
+    Hanya pemilik PR yang bisa mengedit.
+    Line items lama dihapus dan diganti dengan yang baru.
+    """
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(selectinload(PurchaseRequisition.line_items))
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
+
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Requisition tidak ditemukan",
+        )
+
+    if pr.requester_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak memiliki akses ke PR ini",
+        )
+
+    if pr.status != PRStatus.SUBMITTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hanya PR dengan status SUBMITTED yang bisa diedit",
+        )
+
+    # Update PR fields
+    pr.title = body.title
+    pr.justification = body.justification
+
+    # Remove old line items
+    for old_item in pr.line_items:
+        await db.delete(old_item)
+
+    # Calculate new total and create new line items
+    total = sum(
+        round(item.quantity * item.estimated_unit_price, 2) for item in body.items
+    )
+    pr.total_amount = total
+
+    for item in body.items:
+        subtotal = round(item.quantity * item.estimated_unit_price, 2)
+        line = PRLineItem(
+            pr_id=pr.id,
+            item_name=item.item_name,
+            quantity=item.quantity,
+            unit_of_measure=item.unit_of_measure,
+            estimated_unit_price=item.estimated_unit_price,
+            subtotal=subtotal,
+        )
+        db.add(line)
+
+    await db.commit()
+    await db.refresh(pr, attribute_names=["line_items"])
+
+    return APIResponse(
+        success=True,
+        data=PROut.model_validate(pr).model_dump(mode="json"),
+        message="Purchase Requisition berhasil diperbarui",
+    )
+
+
+# ── DELETE /{id} ──────────────────────────────────────────────────
+@router.delete(
+    "/{pr_id}",
+    summary="Batalkan / hapus PR yang masih SUBMITTED",
+)
+async def delete_requisition(
+    pr_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Requester membatalkan/menghapus PR yang masih berstatus SUBMITTED.
+    Hanya pemilik PR yang bisa menghapus.
+    PR beserta line items akan dihapus permanen.
+    """
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
+
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Requisition tidak ditemukan",
+        )
+
+    if pr.requester_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak memiliki akses ke PR ini",
+        )
+
+    if pr.status != PRStatus.SUBMITTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hanya PR dengan status SUBMITTED yang bisa dibatalkan",
+        )
+
+    await db.delete(pr)
+    await db.commit()
+
+    return APIResponse(
+        success=True,
+        data=None,
+        message="Purchase Requisition berhasil dibatalkan dan dihapus",
     )

@@ -21,3 +21,16 @@ export async function loginRequest(
 
   return { token, user };
 }
+
+export async function registerRequesterRequest(
+  email: string,
+  password: string,
+  full_name: string
+): Promise<APIResponse<User>> {
+  const res = await api.post<APIResponse<User>>("/auth/register-requester", {
+    email,
+    password,
+    full_name,
+  });
+  return res.data;
+}
