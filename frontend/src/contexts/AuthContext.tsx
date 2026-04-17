@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { loginRequest } from "../services/auth";
+import { loginRequest, logoutRequest } from "../services/auth";
 import api from "../services/api";
 import type { User, UserRole, APIResponse } from "../types";
 
@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => {
           localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
           localStorage.removeItem("user");
         })
         .finally(() => setLoading(false));
@@ -79,9 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [navigate, location.state]
   );
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
+  const logout = useCallback(async () => {
+    // Call backend to revoke the token, then clear local storage
+    await logoutRequest();
     setUser(null);
     navigate("/login", { replace: true });
   }, [navigate]);
