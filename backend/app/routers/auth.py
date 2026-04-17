@@ -1,22 +1,41 @@
 """
-Authentication router — register & login endpoints.
+Authentication router — register, login, refresh & logout endpoints.
 
-POST /api/v1/auth/register            → admin-only, create new user
-POST /api/v1/auth/register-requester  → public, self-register as requester
-POST /api/v1/auth/login               → return JWT access token
-GET  /api/v1/auth/me                  → return current authenticated user
+POST /api/v1/auth/register            -> admin-only, create new user
+POST /api/v1/auth/register-requester  -> public, self-register as requester
+POST /api/v1/auth/login               -> return JWT access + refresh token
+POST /api/v1/auth/refresh             -> exchange refresh token for new pair
+POST /api/v1/auth/logout              -> revoke current access token
+GET  /api/v1/auth/me                  -> return current authenticated user
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_role
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_access_token,
+    decode_refresh_token,
+    hash_password,
+    verify_password,
+)
 from app.db.session import get_db
 from app.models.enums import UserRole
+from app.models.token_blacklist import TokenBlacklist
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequesterRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RefreshRequest,
+    RegisterRequesterRequest,
+    TokenResponse,
+    UserResponse,
+)
 from app.schemas.user import UserCreate
 from app.schemas.common import APIResponse
 
@@ -110,7 +129,7 @@ async def register_requester(
 @router.post(
     "/login",
     response_model=APIResponse,
-    summary="Login dan dapatkan access token",
+    summary="Login dan dapatkan access + refresh token",
 )
 async def login(
     body: LoginRequest,
@@ -118,7 +137,8 @@ async def login(
 ):
     """
     Autentikasi dengan email & password.
-    Mengembalikan JWT access token (berlaku 8 jam).
+    Mengembalikan JWT access token (berlaku 30 menit) dan
+    refresh token (berlaku 7 hari).
     """
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
@@ -132,13 +152,131 @@ async def login(
 
     # Extract role value safely (handles both Enum and string)
     role_value = user.role.value if hasattr(user.role, 'value') else str(user.role)
-    token = create_access_token(subject=user.id, role=role_value)
-    
-    token_response = TokenResponse(access_token=token)
+    access = create_access_token(subject=user.id, role=role_value)
+    refresh = create_refresh_token(subject=user.id)
+
+    token_response = TokenResponse(access_token=access, refresh_token=refresh)
     return APIResponse(
         success=True,
         data=token_response.model_dump(),
         message="Login berhasil"
+    )
+
+
+# ── POST /refresh ─────────────────────────────────────────────────
+@router.post(
+    "/refresh",
+    response_model=APIResponse,
+    summary="Refresh access token menggunakan refresh token",
+)
+async def refresh_token(
+    body: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Tukar refresh token yang masih valid dengan pasangan
+    access token + refresh token baru (token rotation).
+    """
+    payload = decode_refresh_token(body.refresh_token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token tidak valid atau sudah kedaluwarsa",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check if refresh token has been revoked
+    jti: str | None = payload.get("jti")
+    if jti:
+        result = await db.execute(
+            select(TokenBlacklist).where(TokenBlacklist.jti == jti)
+        )
+        if result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token sudah di-revoke, silakan login kembali",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    # Verify user still exists
+    user_id = payload.get("sub")
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User tidak ditemukan",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Blacklist the old refresh token (token rotation)
+    if jti:
+        exp = payload.get("exp")
+        blacklisted = TokenBlacklist(
+            jti=jti,
+            user_id=int(user_id),
+            expires_at=datetime.fromtimestamp(exp, tz=timezone.utc),
+        )
+        db.add(blacklisted)
+        await db.commit()
+
+    # Issue new token pair
+    role_value = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    new_access = create_access_token(subject=user.id, role=role_value)
+    new_refresh = create_refresh_token(subject=user.id)
+
+    token_response = TokenResponse(access_token=new_access, refresh_token=new_refresh)
+    return APIResponse(
+        success=True,
+        data=token_response.model_dump(),
+        message="Token berhasil diperbarui",
+    )
+
+
+# ── POST /logout ──────────────────────────────────────────────────
+@router.post(
+    "/logout",
+    response_model=APIResponse,
+    summary="Logout dan revoke access token",
+)
+async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Revoke (blacklist) the current access token so it can no longer
+    be used, even if it has not yet expired.
+    """
+    payload = decode_access_token(credentials.credentials)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token tidak valid atau sudah kedaluwarsa",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+
+    if jti and exp:
+        # Only blacklist if not already blacklisted
+        result = await db.execute(
+            select(TokenBlacklist).where(TokenBlacklist.jti == jti)
+        )
+        if result.scalar_one_or_none() is None:
+            blacklisted = TokenBlacklist(
+                jti=jti,
+                user_id=int(payload.get("sub")),
+                expires_at=datetime.fromtimestamp(exp, tz=timezone.utc),
+            )
+            db.add(blacklisted)
+            await db.commit()
+
+    return APIResponse(
+        success=True,
+        data=None,
+        message="Logout berhasil, token telah di-revoke",
     )
 
 

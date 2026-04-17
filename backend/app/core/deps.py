@@ -1,5 +1,12 @@
 """
 FastAPI dependencies for authentication and role-based access control.
+
+Authentication flow:
+    1. HTTPBearer extracts the token from the Authorization header
+    2. decode_access_token verifies signature, expiration, and token type
+    3. Token jti is checked against the blacklist (revoked tokens)
+    4. User is fetched from the database to confirm they still exist
+    5. Role is checked from the DB object (not from the JWT payload)
 """
 
 from typing import List
@@ -11,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_access_token
 from app.db.session import get_db
+from app.models.token_blacklist import TokenBlacklist
 from app.models.user import User
 
 # Bearer token scheme — expects "Authorization: Bearer <token>"
@@ -25,8 +33,8 @@ async def get_current_user(
     Validate the JWT access token from the Authorization header and
     return the corresponding User ORM object.
 
-    Raises 401 if the token is missing, invalid, expired, or the user
-    no longer exists in the database.
+    Raises 401 if the token is missing, invalid, expired, revoked,
+    or the user no longer exists in the database.
     """
     payload = decode_access_token(credentials.credentials)
     if payload is None:
@@ -36,6 +44,20 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # ── Check token blacklist (revocation) ────────────────────────
+    jti: str | None = payload.get("jti")
+    if jti:
+        result = await db.execute(
+            select(TokenBlacklist).where(TokenBlacklist.jti == jti)
+        )
+        if result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token sudah di-revoke, silakan login kembali",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    # ── Fetch user from database ──────────────────────────────────
     user_id: str | None = payload.get("sub")
     if user_id is None:
         raise HTTPException(

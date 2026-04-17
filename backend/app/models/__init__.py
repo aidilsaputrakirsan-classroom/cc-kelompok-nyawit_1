@@ -9,6 +9,7 @@ from app.models.purchase_requisition import PurchaseRequisition  # noqa: F401
 from app.models.pr_line_item import PRLineItem  # noqa: F401
 from app.models.purchase_order import PurchaseOrder  # noqa: F401
 from app.models.grn_document import GRNDocument  # noqa: F401
+from app.models.token_blacklist import TokenBlacklist  # noqa: F401
 
 __all__ = [
     "PRStatus",
@@ -18,4 +19,5 @@ __all__ = [
     "PRLineItem",
     "PurchaseOrder",
     "GRNDocument",
+    "TokenBlacklist",
 ]
