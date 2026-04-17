@@ -137,38 +137,63 @@ export default function RequesterPRDetail() {
     <div className="page">
       <div className="page-header">
         <h2>Detail PR: {pr.pr_number}</h2>
-        <Link to="/requester/dashboard" className="btn btn-outline">
-          &larr; Kembali
+        <Link to="/requester/dashboard" className="btn-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          Kembali 
         </Link>
       </div>
 
       {/* Status Timeline */}
       <div className="timeline-card">
-        <h3>Status Timeline</h3>
+        <div className="timeline-header">
+          <h3>Status Timeline</h3>
+          <StatusBadge status={pr.status} />
+        </div>
         <div className="status-timeline">
           {STATUS_TIMELINE.map((step, idx) => {
             let state: "done" | "active" | "pending" = "pending";
             if (isRejected) {
               if (idx === 0) state = "done";
-              else if (idx === 1) state = "active"; // rejected at review
-              else state = "pending";
+              else if (idx === 1) state = "active";
             } else {
               if (idx < currentIdx) state = "done";
               else if (idx === currentIdx) state = "active";
             }
+
+            const stepNumber = idx + 1;
+
             return (
-              <div key={step.key} className={`timeline-step timeline-${state}`}>
-                <div className="timeline-dot" />
+              <div
+                key={step.key}
+                className={`timeline-step timeline-${state}${isRejected && idx === 1 ? " timeline-rejected" : ""}`}
+              >
+                <div className="timeline-dot">
+                  {state === "done" && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                  {state === "active" && !isRejected && (
+                    <span className="timeline-dot-pulse" />
+                  )}
+                  {state === "active" && isRejected && idx === 1 && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  )}
+                  {state === "pending" && (
+                    <span className="timeline-dot-number">{stepNumber}</span>
+                  )}
+                </div>
                 <span className="timeline-label">{step.label}</span>
               </div>
             );
           })}
         </div>
-        {isRejected && (
-          <div className="timeline-rejected-badge">
-            <StatusBadge status="REJECTED" />
-          </div>
-        )}
       </div>
 
       {/* PR Info */}
@@ -229,12 +254,15 @@ export default function RequesterPRDetail() {
       {/* Line Items */}
       {pr.line_items && pr.line_items.length > 0 && (
         <div className="detail-card">
-          <h3>Line Items</h3>
+          <div className="line-items-header">
+            <h3>Line Items</h3>
+            <span className="line-items-count">{pr.line_items.length} item</span>
+          </div>
           <div className="table-wrapper">
             <table className="table">
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th>No</th>
                   <th>Nama Item</th>
                   <th>Qty</th>
                   <th>Satuan</th>
@@ -245,7 +273,7 @@ export default function RequesterPRDetail() {
               <tbody>
                 {pr.line_items.map((item, idx) => (
                   <tr key={item.id}>
-                    <td className="text-muted">{idx + 1}</td>
+                    <td>{idx + 1}</td>
                     <td>{item.item_name}</td>
                     <td>{item.quantity}</td>
                     <td>{item.unit_of_measure}</td>
@@ -258,12 +286,11 @@ export default function RequesterPRDetail() {
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
+             <tfoot>
                 <tr>
-                  <td colSpan={5} className="text-right" style={{ fontWeight: 600 }}>
-                    Total
-                  </td>
-                  <td className="text-right font-mono" style={{ fontWeight: 700 }}>
+                  <td colSpan={4} />
+                  <td className="text-right">Total</td>
+                  <td className="text-right font-mono">
                     {formatCurrency(pr.total_amount)}
                   </td>
                 </tr>
@@ -335,7 +362,7 @@ export default function RequesterPRDetail() {
                     onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)}
                   />
                   {invoiceFile && (
-                    <span className="text-muted" style={{ fontSize: "0.8rem" }}>
+                    <span className="text-muted" style={{ fontSize: "0.9375rem" }}>
                       {invoiceFile.name} ({(invoiceFile.size / 1024).toFixed(0)} KB)
                     </span>
                   )}
@@ -348,7 +375,7 @@ export default function RequesterPRDetail() {
                     onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
                   />
                   {photoFile && (
-                    <span className="text-muted" style={{ fontSize: "0.8rem" }}>
+                    <span className="text-muted" style={{ fontSize: "0.9375rem" }}>
                       {photoFile.name} ({(photoFile.size / 1024).toFixed(0)} KB)
                     </span>
                   )}

@@ -173,7 +173,7 @@ export default function RequesterPRNew() {
             <table className="table line-items-table">
               <thead>
                 <tr>
-                  <th style={{ width: "40px" }}>#</th>
+                  <th style={{ width: "40px" }}>No</th>
                   <th>Nama Item</th>
                   <th style={{ width: "90px" }}>Qty</th>
                   <th style={{ width: "100px" }}>Satuan</th>
@@ -244,7 +244,7 @@ export default function RequesterPRNew() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={5} className="text-right" style={{ fontWeight: 600 }}>
+                  <td colSpan={5} className="text-right" style={{ fontWeight: 700 }}>
                     Total Estimasi
                   </td>
                   <td className="text-right font-mono" style={{ fontWeight: 700 }}>

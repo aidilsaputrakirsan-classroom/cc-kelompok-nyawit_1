@@ -24,6 +24,12 @@ const ToastContext = createContext<ToastContextType | null>(null);
 
 let nextId = 1;
 
+const TOAST_ICONS: Record<ToastType, string> = {
+  success: "✓",
+  error: "✕",
+  info: "ℹ",
+};
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -48,10 +54,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toast-container">
         {toasts.map((toast) => (
           <div key={toast.id} className={`toast toast-${toast.type}`}>
+            <span className="toast-icon">{TOAST_ICONS[toast.type]}</span>
             <span className="toast-message">{toast.message}</span>
             <button
               className="toast-close"
               onClick={() => removeToast(toast.id)}
+              aria-label="Close notification"
             >
               &times;
             </button>
