@@ -4,7 +4,7 @@
 
 Perintah yang digunakan untuk melihat ukuran Docker image:
 
-![Hasil Ukuran Python](../../frontend/image/modul5.png)
+docker images
 
 | Image | Disk Usage | Content Size |
 |-------|-----------|--------------|
@@ -27,3 +27,4 @@ Jika dilihat dari content size, perbedaannya juga cukup signifikan. Ini menunjuk
 Kalau dilihat dari ukuran, python:3.12-alpine memang paling ringan.
 
 Namun untuk penggunaan dalam proyek ini, python:3.12-slim lebih disarankan karena ukurannya sudah cukup kecil dan biasanya lebih stabil serta lebih kompatibel dibandingkan alpine.
+
