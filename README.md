@@ -387,15 +387,6 @@ Dari root project (`sicure/`):
 
 ---
 
-## 📋 Hasil Pengujian 
-
-- [Modul 2: dokumentasi hasil testing semua endpoint via Swagger](docs/api-test-result.md)
-- [Modul 3: dokumentasi UI testing](docs/ui-test-results.md)
-- [Modul 4: dokumentasi Auth testing](docs/modul4-auth.md)
-- [Modul 5: dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
-
----
-
 ## Next Steps
 
 Fitur-fitur yang direncanakan untuk pengembangan selanjutnya:
@@ -442,3 +433,10 @@ Fitur-fitur yang direncanakan untuk pengembangan selanjutnya:
 ## License
 
 Internal project — Universitas.
+
+## 📋 Hasil Pengujian 
+
+- [Dokumentasi hasil testing semua endpoint via Swagger](docs/api-test-result.md)
+- [Dokumentasi UI testing](docs/ui-test-results.md)
+- [Dokumentasi Auth testing](docs/modul4-auth.md)
+- [Dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
