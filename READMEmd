@@ -1,8 +1,36 @@
-# SiCure — Sistem Procurement
+# ☁️ SiCure — Sistem Information Procurement
 
-Aplikasi procurement berbasis web untuk mengelola alur pengadaan barang/jasa secara profesional.  
+SiCure (Sistem Information Procurement) merupakan aplikasi berbasis cloud yang dirancang untuk membantu organisasi dalam mengelola proses pengadaan barang/jasa secara digital, terstruktur, dan transparan.
+
+Aplikasi ini mendukung pencatatan serta monitoring proses procurement mulai dari pengajuan hingga verifikasi akhir dalam satu platform terintegrasi. Dengan sistem ini, organisasi seperti himpunan mahasiswa, UKM, maupun komunitas dapat meningkatkan efisiensi administrasi, mengurangi kesalahan pencatatan, serta memastikan transparansi dalam pengelolaan pengadaan.
+
+Melalui pendekatan berbasis cloud, sistem dapat diakses kapan saja dan di mana saja oleh pihak yang berwenang, sehingga mendukung pengambilan keputusan yang lebih cepat dan akurat.
+
 **Backend:** FastAPI + SQLAlchemy (async) + PostgreSQL  
 **Frontend:** React 19 + TypeScript + Vite
+
+---
+
+## 👥 Tim
+
+| Nama | NIM | Peran |
+|------|------|--------|
+| Muchlis Wahyu Saputra | 10231054 | Lead Backend |
+| Ranaya Chintya Mahitsa | 10231078 | Lead Frontend |
+| Andi Adam Firdaus | 10211014 | Lead DevOps |
+| Ahmad Baihaqi | 10221063 | Lead DevOps |
+| Az-Zahra Atikah Nurhaliza | 10231022 | Lead QA & Docs |
+
+---
+
+## 📌 Fitur Utama Sistem
+
+- **Procurement Management**: Pengajuan hingga persetujuan pengadaan
+- **Purchase Order (PO)**: Penerbitan dokumen resmi pembelian
+- **GRN (Goods Receipt Note)**: Upload bukti penerimaan barang
+- **Verification System**: Validasi dokumen oleh admin
+- **Role-Based Access Control**: Hak akses berdasarkan role (Admin & Requester)
+- **Audit & Tracking**: Monitoring status setiap proses pengadaan
 
 ---
 
@@ -289,6 +317,10 @@ sicure/
 
 ---
 
+## ERD
+![ss](../../../docs/Images/ERD-CC.png)
+![ss](../../frontend/image/modul5.png)
+
 ## API Endpoints
 
 Base URL: `http://localhost:8000/api/v1`
@@ -353,6 +385,15 @@ Dari root project (`sicure/`):
 5. **Password:** Menggunakan bcrypt hashing. Password tidak pernah disimpan dalam plaintext.
 
 6. **Database:** Gunakan password yang kuat untuk PostgreSQL di production. Jangan gunakan user `postgres` tanpa password.
+
+---
+
+## 📋 Hasil Pengujian 
+
+- [Modul 2: dokumentasi hasil testing semua endpoint via Swagger](docs/modul2-api-test-result.md)
+- [Modul 3: dokumentasi UI testing](docs/modul3-ui-test-results.md)
+- [Modul 4: dokumentasi Auth testing](docs/modul4-auth.md)
+- [Modul 5: dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
 
 ---
 
