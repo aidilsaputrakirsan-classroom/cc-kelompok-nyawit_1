@@ -318,8 +318,7 @@ sicure/
 ---
 
 ## ERD
-![ss](../../../docs/Images/ERD-CC.png)
-![ss](../../frontend/image/modul5.png)
+![ERD Diagram](docs/Images/ERDCC.png)
 
 ## API Endpoints
 
@@ -390,8 +389,8 @@ Dari root project (`sicure/`):
 
 ## 📋 Hasil Pengujian 
 
-- [Modul 2: dokumentasi hasil testing semua endpoint via Swagger](docs/modul2-api-test-result.md)
-- [Modul 3: dokumentasi UI testing](docs/modul3-ui-test-results.md)
+- [Modul 2: dokumentasi hasil testing semua endpoint via Swagger](docs/api-test-result.md)
+- [Modul 3: dokumentasi UI testing](docs/ui-test-results.md)
 - [Modul 4: dokumentasi Auth testing](docs/modul4-auth.md)
 - [Modul 5: dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
 
