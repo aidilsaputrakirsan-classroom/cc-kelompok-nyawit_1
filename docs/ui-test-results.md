@@ -5,7 +5,6 @@
 ![ss](./Images/hasil-ui-test/gmbr1.png) 
 
 **Hasil Pengujian:**
-
 Halaman utama (dashboard) aplikasi berhasil ditampilkan dengan baik pada browser. Sistem menampilkan data *Purchase Requisitions* yang diambil dari backend, seperti daftar PR, total PR, serta status (In Progress, Completed, dll).
 
 Data yang muncul pada tabel menunjukkan bahwa frontend berhasil melakukan komunikasi dengan backend API untuk mengambil dan menampilkan data secara dinamis.
