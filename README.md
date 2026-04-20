@@ -242,9 +242,15 @@ DRAFT ──> SUBMITTED ──> APPROVED ──> PO_ISSUED ──> DOC_SUBMITTED
 ```
 sicure/
 ├── package.json                 # Root scripts (dev, build, db:migrate, db:seed, test)
-├── README.md
+├── README-example.md            # Dokumentasi lengkap
+├── DOCKER_GUIDE.md              # Panduan Docker lengkap
+├── docker-compose.yml           # Docker Compose configuration
+├── .env.example                 # Template environment variables
+├── .dockerignore                # Docker ignore rules
 │
 ├── backend/
+│   ├── Dockerfile               # Backend Docker image
+│   ├── .dockerignore            # Backend Docker ignore
 │   ├── .env.local               # Contoh konfigurasi environment
 │   ├── .env.example             # Template environment
 │   ├── requirements.txt         # Python dependencies
@@ -281,38 +287,46 @@ sicure/
 │           ├── grn.py           # GRN document upload
 │           └── grn_admin.py     # GRN verification
 │
-└── frontend/
-    ├── .env.local               # Contoh konfigurasi environment
-    ├── package.json
-    ├── vite.config.ts
-    ├── index.html
-    └── src/
-        ├── main.tsx             # Entry point + ErrorBoundary
-        ├── App.tsx              # Router + providers
-        ├── index.css            # All styles (no CSS framework)
-        ├── types/index.ts       # TypeScript interfaces
-        ├── services/
-        │   ├── api.ts           # Axios instance + interceptors
-        │   └── auth.ts          # Login helper
-        ├── contexts/
-        │   ├── AuthContext.tsx   # Auth state management
-        │   ├── ToastContext.tsx  # Toast notifications
-        │   └── ProcurementContext.tsx  # PR/PO data caching
-        ├── components/
-        │   ├── Layout.tsx       # Navbar + page wrapper
-        │   ├── ProtectedRoute.tsx  # Auth guard + role check
-        │   ├── StatusBadge.tsx  # Status pill component
-        │   └── ErrorBoundary.tsx  # Error fallback UI
-        └── pages/
-            ├── Login.tsx
-            ├── requester/
-            │   ├── Dashboard.tsx  # List own PRs
-            │   ├── PRNew.tsx      # Create new PR
-            │   └── PRDetail.tsx   # PR detail + GRN upload
-            └── admin/
-                ├── Dashboard.tsx  # All PRs + status filter
-                ├── PRDetail.tsx   # Review/Approve/Reject/Issue PO/Verify
-                └── PODetail.tsx   # PO detail view
+├── frontend/
+│   ├── Dockerfile               # Frontend production image (Nginx)
+│   ├── Dockerfile.dev           # Frontend development image
+│   ├── nginx.conf               # Nginx configuration
+│   ├── .dockerignore            # Frontend Docker ignore
+│   ├── .env.local               # Contoh konfigurasi environment
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── index.html
+│   └── src/
+│       ├── main.tsx             # Entry point + ErrorBoundary
+│       ├── App.tsx              # Router + providers
+│       ├── index.css            # All styles (no CSS framework)
+│       ├── types/index.ts       # TypeScript interfaces
+│       ├── services/
+│       │   ├── api.ts           # Axios instance + interceptors
+│       │   └── auth.ts          # Login helper
+│       ├── contexts/
+│       │   ├── AuthContext.tsx   # Auth state management
+│       │   ├── ToastContext.tsx  # Toast notifications
+│       │   └── ProcurementContext.tsx  # PR/PO data caching
+│       ├── components/
+│       │   ├── Layout.tsx       # Navbar + page wrapper
+│       │   ├── ProtectedRoute.tsx  # Auth guard + role check
+│       │   ├── StatusBadge.tsx  # Status pill component
+│       │   └── ErrorBoundary.tsx  # Error fallback UI
+│       └── pages/
+│           ├── Login.tsx
+│           ├── requester/
+│           │   ├── Dashboard.tsx  # List own PRs
+│           │   ├── PRNew.tsx      # Create new PR
+│           │   └── PRDetail.tsx   # PR detail + GRN upload
+│           └── admin/
+│               ├── Dashboard.tsx  # All PRs + status filter
+│               ├── PRDetail.tsx   # Review/Approve/Reject/Issue PO/Verify
+│               └── PODetail.tsx   # PO detail view
+│
+└── scripts/
+    ├── start-dev.sh             # Start Docker development environment
+    └── stop-dev.sh              # Stop Docker environment
 ```
 
 ---
