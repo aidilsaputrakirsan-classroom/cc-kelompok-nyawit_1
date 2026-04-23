@@ -76,3 +76,17 @@ app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "env": settings.APP_ENV}
+
+
+@app.get("/api/v1/health")
+async def api_health_check():
+    """Health check endpoint for API monitoring"""
+    return {
+        "success": True,
+        "data": {
+            "status": "healthy",
+            "environment": settings.APP_ENV,
+            "version": "1.0.0"
+        },
+        "message": "API is running normally"
+    }

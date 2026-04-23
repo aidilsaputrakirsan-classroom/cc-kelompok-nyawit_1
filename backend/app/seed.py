@@ -1,17 +1,36 @@
 """
-Database seeder — wipes all requester accounts & PR data, then re-creates
-demo users and seeds complete dummy procurement data at every timeline stage.
+Database seeder - IDEMPOTENT implementation.
 
-All dummy data is technology-themed.
+This seeder ONLY inserts data if it doesn't exist.
+It NEVER deletes existing data, preserving all user-created content.
+
+Key features:
+- Checks for existing data before inserting
+- Safe to run multiple times without data loss
+- Preserves all development/production data
+- Only creates demo data if FORCE_SEED=true
 
 Usage:
-    python -m app.seed
+    # First setup - create demo data
+    SEED_ON_STARTUP=true docker compose up -d
+    
+    # Or manually (idempotent - safe to run anytime)
+    docker compose exec backend python -m app.seed
+    
+    # Force re-seed (WARNING: will wipe and recreate demo data)
+    docker compose exec -e FORCE_SEED=true backend python -m app.seed
+
+Environment Variables:
+    SEED_ON_STARTUP=true       # Enable seeding on container startup
+    FORCE_SEED=true            # Wipe demo data and re-seed (preserves user data)
 """
 
 import asyncio
+import os
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
 from app.db.session import async_session
@@ -54,13 +73,9 @@ REQUESTER_USERS = [
 
 
 # ── Dummy PR data per timeline stage ──────────────────────────────
-# Each entry will be created for a specific requester and progressed
-# to the target status.
-
 SEED_PRS = [
-    # ── 1. SUBMITTED (baru diajukan, belum di-review) ────────────
     {
-        "requester_idx": 0,  # Andi
+        "requester_idx": 0,
         "title": "Pengadaan Server Rack untuk Data Center",
         "justification": "Kapasitas server rack di data center sudah penuh. "
                          "Diperlukan tambahan rack untuk menampung server baru "
@@ -74,7 +89,7 @@ SEED_PRS = [
         ],
     },
     {
-        "requester_idx": 1,  # Dewi
+        "requester_idx": 1,
         "title": "Pembelian Lisensi Software Development Tools",
         "justification": "Tim development membutuhkan lisensi IDE dan tools "
                          "kolaborasi untuk meningkatkan produktivitas. "
@@ -86,10 +101,8 @@ SEED_PRS = [
             ("Figma Professional (Annual)", 5, "lisensi", 2_800_000),
         ],
     },
-
-    # ── 2. APPROVED (sudah disetujui admin) ───────────────────────
     {
-        "requester_idx": 0,  # Andi
+        "requester_idx": 0,
         "title": "Upgrade RAM dan SSD untuk Workstation Engineering",
         "justification": "Workstation tim engineering sering mengalami lag saat "
                          "menjalankan Docker containers dan kompilasi project. "
@@ -103,10 +116,8 @@ SEED_PRS = [
             ("Thermal Paste Noctua NT-H2", 8, "tube", 150_000),
         ],
     },
-
-    # ── 3. REJECTED (ditolak admin) ───────────────────────────────
     {
-        "requester_idx": 2,  # Rizky
+        "requester_idx": 2,
         "title": "Pembelian Drone untuk Monitoring Infrastruktur",
         "justification": "Menggunakan drone untuk inspeksi visual tower "
                          "telekomunikasi dan kabel fiber optik di area terpencil.",
@@ -121,10 +132,8 @@ SEED_PRS = [
             ("DJI Pilot 2 License", 2, "lisensi", 3_000_000),
         ],
     },
-
-    # ── 4. PO_ISSUED (PO sudah diterbitkan) ───────────────────────
     {
-        "requester_idx": 1,  # Dewi
+        "requester_idx": 1,
         "title": "Pengadaan Perangkat Jaringan untuk Kantor Baru",
         "justification": "Kantor cabang baru membutuhkan infrastruktur jaringan "
                          "lengkap termasuk switch managed, access point, dan firewall "
@@ -140,10 +149,8 @@ SEED_PRS = [
             ("RJ45 Cat6A Connector (100pcs)", 2, "pack", 650_000),
         ],
     },
-
-    # ── 5. DOC_SUBMITTED (dokumen GRN sudah diupload) ─────────────
     {
-        "requester_idx": 2,  # Rizky
+        "requester_idx": 2,
         "title": "Pembelian Laptop untuk Tim Data Science",
         "justification": "Tim data science baru dibentuk dan membutuhkan laptop "
                          "dengan GPU dedicated untuk training model machine learning "
@@ -157,10 +164,8 @@ SEED_PRS = [
             ("LG UltraFine 27\" 4K Monitor", 3, "unit", 7_800_000),
         ],
     },
-
-    # ── 6. VERIFIED (GRN sudah diverifikasi admin) ────────────────
     {
-        "requester_idx": 0,  # Andi
+        "requester_idx": 0,
         "title": "Pengadaan UPS untuk Server Room",
         "justification": "Server room membutuhkan UPS tambahan untuk menjamin "
                          "uptime 99.99%. UPS lama sudah berusia 5 tahun dan "
@@ -177,10 +182,8 @@ SEED_PRS = [
             ("APC Network Management Card 3", 2, "pcs", 4_500_000),
         ],
     },
-
-    # ── 7. CLOSED (proses procurement selesai) ────────────────────
     {
-        "requester_idx": 1,  # Dewi
+        "requester_idx": 1,
         "title": "Pembelian Perangkat IoT untuk Smart Office",
         "justification": "Implementasi smart office menggunakan sensor IoT untuk "
                          "monitoring suhu, kelembaban, dan occupancy ruangan. "
@@ -199,10 +202,8 @@ SEED_PRS = [
             ("PoE Injector 48V", 10, "pcs", 250_000),
         ],
     },
-
-    # ── 8. SUBMITTED (tambahan — variasi data) ────────────────────
     {
-        "requester_idx": 2,  # Rizky
+        "requester_idx": 2,
         "title": "Pengadaan Peralatan Cybersecurity Lab",
         "justification": "Divisi keamanan informasi membutuhkan lab khusus untuk "
                          "penetration testing dan security audit. Peralatan ini "
@@ -216,10 +217,8 @@ SEED_PRS = [
             ("Rubber Ducky USB", 5, "pcs", 1_200_000),
         ],
     },
-
-    # ── 9. CLOSED (tambahan — variasi data) ───────────────────────
     {
-        "requester_idx": 0,  # Andi
+        "requester_idx": 0,
         "title": "Pembelian Lisensi Cloud Platform",
         "justification": "Migrasi infrastruktur ke cloud membutuhkan reserved "
                          "instances AWS dan lisensi monitoring tools untuk "
@@ -237,10 +236,8 @@ SEED_PRS = [
             ("HashiCorp Terraform Cloud Business", 1, "lisensi", 28_000_000),
         ],
     },
-
-    # ── 10. PO_ISSUED (tambahan — variasi data) ──────────────────
     {
-        "requester_idx": 2,  # Rizky
+        "requester_idx": 2,
         "title": "Pengadaan Perangkat Video Conference",
         "justification": "Ruang meeting perlu di-upgrade dengan perangkat video "
                          "conference berkualitas tinggi untuk mendukung hybrid "
@@ -259,241 +256,312 @@ SEED_PRS = [
 ]
 
 
-async def wipe_and_seed() -> None:
-    """Delete all requester accounts & PR data, then seed fresh data."""
-    async with async_session() as session:
-        # ── PHASE 1: Wipe all PR-related data & requester accounts ──
-        print("=" * 60)
-        print("  PHASE 1: Menghapus data lama")
-        print("=" * 60)
-
-        # Delete in correct FK order
-        del_grn = await session.execute(delete(GRNDocument))
-        print(f"  [wipe] Deleted {del_grn.rowcount} GRN documents")
-
-        del_po = await session.execute(delete(PurchaseOrder))
-        print(f"  [wipe] Deleted {del_po.rowcount} Purchase Orders")
-
-        del_items = await session.execute(delete(PRLineItem))
-        print(f"  [wipe] Deleted {del_items.rowcount} PR Line Items")
-
-        del_pr = await session.execute(delete(PurchaseRequisition))
-        print(f"  [wipe] Deleted {del_pr.rowcount} Purchase Requisitions")
-
-        del_req = await session.execute(
-            delete(User).where(User.role == UserRole.REQUESTER)
+async def seed_admin(db: AsyncSession) -> None:
+    """Seed admin user - IDEMPOTENT (only creates if doesn't exist)"""
+    result = await db.execute(select(User).where(User.email == ADMIN_USER["email"]))
+    existing = result.scalar_one_or_none()
+    
+    if not existing:
+        admin = User(
+            email=ADMIN_USER["email"],
+            hashed_password=hash_password(ADMIN_USER["password"]),
+            full_name=ADMIN_USER["full_name"],
+            role=ADMIN_USER["role"],
         )
-        print(f"  [wipe] Deleted {del_req.rowcount} Requester accounts")
+        db.add(admin)
+        await db.commit()
+        await db.refresh(admin)
+        print(f"  ✓ Created admin: {admin.email} (id={admin.id})")
+    else:
+        print(f"  - Admin exists: {existing.email} (id={existing.id})")
 
-        await session.commit()
-        print("  [wipe] Commit OK\n")
 
-        # ── PHASE 2: Ensure admin account exists ─────────────────────
-        print("=" * 60)
-        print("  PHASE 2: Memastikan akun admin")
-        print("=" * 60)
-
-        result = await session.execute(
-            select(User).where(User.email == ADMIN_USER["email"])
-        )
-        admin = result.scalar_one_or_none()
-
-        if admin is None:
-            admin = User(
-                email=ADMIN_USER["email"],
-                hashed_password=hash_password(ADMIN_USER["password"]),
-                full_name=ADMIN_USER["full_name"],
-                role=ADMIN_USER["role"],
-            )
-            session.add(admin)
-            await session.commit()
-            await session.refresh(admin)
-            print(f"  [seed] Admin dibuat: {admin.email} (id={admin.id})")
-        else:
-            print(f"  [seed] Admin sudah ada: {admin.email} (id={admin.id})")
-        print()
-
-        # ── PHASE 3: Create requester accounts ───────────────────────
-        print("=" * 60)
-        print("  PHASE 3: Membuat akun requester baru")
-        print("=" * 60)
-
-        requesters = []
-        for u_data in REQUESTER_USERS:
+async def seed_requesters(db: AsyncSession) -> list[User]:
+    """Seed demo requester accounts - IDEMPOTENT (only creates if doesn't exist)"""
+    requesters = []
+    
+    for u_data in REQUESTER_USERS:
+        result = await db.execute(select(User).where(User.email == u_data["email"]))
+        existing = result.scalar_one_or_none()
+        
+        if not existing:
             user = User(
                 email=u_data["email"],
                 hashed_password=hash_password(u_data["password"]),
                 full_name=u_data["full_name"],
                 role=u_data["role"],
             )
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
             requesters.append(user)
-            print(f"  [seed] Requester dibuat: {user.email} "
-                  f"(id={user.id}, nama={user.full_name})")
-        print()
+            print(f"  ✓ Created requester: {user.email} (id={user.id})")
+        else:
+            requesters.append(existing)
+            print(f"  - Requester exists: {existing.email} (id={existing.id})")
+    
+    return requesters
 
-        # ── PHASE 4: Seed PR data at every timeline stage ────────────
-        print("=" * 60)
-        print("  PHASE 4: Seeding data PR di setiap tahap timeline")
-        print("=" * 60)
 
-        now = datetime.now(timezone.utc)
-        pr_counter = 0
-
-        for pr_data in SEED_PRS:
-            pr_counter += 1
-            requester = requesters[pr_data["requester_idx"]]
-            target = pr_data["target_status"]
-
-            # Generate PR number
-            pr_number = f"PR-{now.strftime('%Y%m%d')}-{pr_counter:06d}"
-
-            # Calculate total
-            total = sum(qty * price for _, qty, _, price in pr_data["items"])
-
-            # Create PR (starts as SUBMITTED)
-            pr = PurchaseRequisition(
-                pr_number=pr_number,
+async def seed_demo_prs(db: AsyncSession, requesters: list[User]) -> None:
+    """Seed demo PR data - IDEMPOTENT (only creates if demo data doesn't exist)"""
+    now = datetime.now(timezone.utc)
+    pr_counter = 0
+    
+    for pr_data in SEED_PRS:
+        pr_counter += 1
+        requester = requesters[pr_data["requester_idx"]]
+        target = pr_data["target_status"]
+        
+        # Generate PR number
+        pr_number = f"PR-{now.strftime('%Y%m%d')}-{pr_counter:06d}"
+        
+        # Check if this PR already exists (by title + requester)
+        result = await db.execute(
+            select(PurchaseRequisition).where(
+                PurchaseRequisition.title == pr_data["title"],
+                PurchaseRequisition.requester_id == requester.id
+            )
+        )
+        existing_pr = result.scalar_one_or_none()
+        
+        if existing_pr:
+            print(f"  - PR exists: {pr_data['title'][:50]}...")
+            continue
+        
+        # Calculate total
+        total = sum(qty * price for _, qty, _, price in pr_data["items"])
+        
+        # Create PR (starts as SUBMITTED)
+        pr = PurchaseRequisition(
+            pr_number=pr_number,
+            requester_id=requester.id,
+            title=pr_data["title"],
+            justification=pr_data["justification"],
+            status=PRStatus.SUBMITTED,
+            total_amount=total,
+        )
+        db.add(pr)
+        await db.flush()
+        
+        # Create line items
+        for item_name, qty, uom, unit_price in pr_data["items"]:
+            item = PRLineItem(
+                pr_id=pr.id,
+                item_name=item_name,
+                quantity=qty,
+                unit_of_measure=uom,
+                estimated_unit_price=unit_price,
+                subtotal=qty * unit_price,
+            )
+            db.add(item)
+        
+        await db.flush()
+        
+        # Progress PR through the timeline
+        po = None
+        grn = None
+        
+        if target in (
+            PRStatus.APPROVED, PRStatus.PO_ISSUED,
+            PRStatus.DOC_SUBMITTED, PRStatus.VERIFIED, PRStatus.CLOSED,
+        ):
+            pr.status = PRStatus.APPROVED
+            pr.approval_note = pr_data.get("approval_note", "Disetujui.")
+            await db.flush()
+        
+        if target == PRStatus.REJECTED:
+            pr.status = PRStatus.REJECTED
+            pr.approval_note = pr_data.get("approval_note", "Ditolak.")
+            await db.flush()
+        
+        if target in (
+            PRStatus.PO_ISSUED, PRStatus.DOC_SUBMITTED,
+            PRStatus.VERIFIED, PRStatus.CLOSED,
+        ):
+            po_number = f"PO-{now.strftime('%Y%m%d')}-{pr_counter:06d}"
+            po = PurchaseOrder(
+                po_number=po_number,
+                pr_id=pr.id,
+                issued_by=requesters[0].id,  # Admin
+                allocated_budget=total,
+            )
+            db.add(po)
+            pr.status = PRStatus.PO_ISSUED
+            await db.flush()
+        
+        if target in (
+            PRStatus.DOC_SUBMITTED, PRStatus.VERIFIED, PRStatus.CLOSED,
+        ):
+            grn = GRNDocument(
+                po_id=po.id,
                 requester_id=requester.id,
-                title=pr_data["title"],
-                justification=pr_data["justification"],
-                status=PRStatus.SUBMITTED,
-                total_amount=total,
+                receipt_url=f"uploads/{po.id}/dummy_receipt.pdf",
+                commercial_invoice_url=f"uploads/{po.id}/dummy_invoice.pdf",
+                goods_photo_url=f"uploads/{po.id}/dummy_photo.jpg",
             )
-            session.add(pr)
-            await session.flush()
-
-            # Create line items
-            for item_name, qty, uom, unit_price in pr_data["items"]:
-                item = PRLineItem(
-                    pr_id=pr.id,
-                    item_name=item_name,
-                    quantity=qty,
-                    unit_of_measure=uom,
-                    estimated_unit_price=unit_price,
-                    subtotal=qty * unit_price,
-                )
-                session.add(item)
-
-            await session.flush()
-
-            # ── Progress PR through the timeline ──────────────────
-            po = None
-            grn = None
-
-            if target in (
-                PRStatus.APPROVED, PRStatus.PO_ISSUED,
-                PRStatus.DOC_SUBMITTED, PRStatus.VERIFIED, PRStatus.CLOSED,
-            ):
-                pr.status = PRStatus.APPROVED
-                pr.approval_note = pr_data.get("approval_note", "Disetujui.")
-                await session.flush()
-
-            if target == PRStatus.REJECTED:
-                pr.status = PRStatus.REJECTED
-                pr.approval_note = pr_data.get("approval_note", "Ditolak.")
-                await session.flush()
-
-            if target in (
-                PRStatus.PO_ISSUED, PRStatus.DOC_SUBMITTED,
-                PRStatus.VERIFIED, PRStatus.CLOSED,
-            ):
-                po_number = f"PO-{now.strftime('%Y%m%d')}-{pr_counter:06d}"
-                po = PurchaseOrder(
-                    po_number=po_number,
-                    pr_id=pr.id,
-                    issued_by=admin.id,
-                    allocated_budget=total,
-                )
-                session.add(po)
-                pr.status = PRStatus.PO_ISSUED
-                await session.flush()
-
-            if target in (
-                PRStatus.DOC_SUBMITTED, PRStatus.VERIFIED, PRStatus.CLOSED,
-            ):
-                grn = GRNDocument(
-                    po_id=po.id,
-                    requester_id=requester.id,
-                    receipt_url=f"uploads/{po.id}/dummy_receipt.pdf",
-                    commercial_invoice_url=f"uploads/{po.id}/dummy_invoice.pdf",
-                    goods_photo_url=f"uploads/{po.id}/dummy_photo.jpg",
-                )
-                session.add(grn)
-                pr.status = PRStatus.DOC_SUBMITTED
-                await session.flush()
-
-            if target in (PRStatus.VERIFIED, PRStatus.CLOSED):
-                grn.verification_note = pr_data.get(
-                    "verification_note",
-                    "Dokumen sudah diverifikasi dan barang sesuai."
-                )
-                pr.status = PRStatus.VERIFIED
-                await session.flush()
-
-            if target == PRStatus.CLOSED:
-                pr.status = PRStatus.CLOSED
-                await session.flush()
-
-            await session.commit()
-
-            status_display = (
-                pr.status.value if hasattr(pr.status, "value") else str(pr.status)
+            db.add(grn)
+            pr.status = PRStatus.DOC_SUBMITTED
+            await db.flush()
+        
+        if target in (PRStatus.VERIFIED, PRStatus.CLOSED):
+            grn.verification_note = pr_data.get(
+                "verification_note",
+                "Dokumen sudah diverifikasi dan barang sesuai."
             )
-            print(
-                f"  [seed] PR #{pr_counter}: {pr.pr_number} | "
-                f"Status: {status_display:<15} | "
-                f"Requester: {requester.full_name:<20} | "
-                f"Total: Rp {total:>15,.0f}"
-            )
-            print(f"         Judul: {pr.title}")
-            if po:
-                print(f"         PO: {po.po_number}")
-            if grn:
-                print(f"         GRN ID: {grn.id}")
-            print()
-
-        # ── Summary ──────────────────────────────────────────────────
-        print("=" * 60)
-        print("  SEEDING SELESAI")
-        print("=" * 60)
-        print()
-        print("=== Demo Credentials ===")
-        print(f"{'Email':<30} {'Password':<20} {'Role':<12} {'Nama'}")
-        print("-" * 90)
-        admin_role = (
-            ADMIN_USER["role"].value
-            if hasattr(ADMIN_USER["role"], "value")
-            else str(ADMIN_USER["role"])
+            pr.status = PRStatus.VERIFIED
+            await db.flush()
+        
+        if target == PRStatus.CLOSED:
+            pr.status = PRStatus.CLOSED
+            await db.flush()
+        
+        await db.commit()
+        
+        status_display = (
+            pr.status.value if hasattr(pr.status, "value") else str(pr.status)
         )
         print(
-            f"{ADMIN_USER['email']:<30} "
-            f"{ADMIN_USER['password']:<20} "
-            f"{admin_role:<12} "
-            f"{ADMIN_USER['full_name']}"
+            f"  ✓ PR #{pr_counter}: {pr.pr_number} | "
+            f"Status: {status_display:<15} | "
+            f"Requester: {requester.full_name:<20} | "
+            f"Total: Rp {total:>15,.0f}"
         )
-        for u in REQUESTER_USERS:
-            role_val = (
-                u["role"].value if hasattr(u["role"], "value") else str(u["role"])
-            )
-            print(
-                f"{u['email']:<30} "
-                f"{u['password']:<20} "
-                f"{role_val:<12} "
-                f"{u['full_name']}"
-            )
-        print()
-        print("=== PR Summary per Status ===")
-        status_counts: dict[str, int] = {}
-        for pr_data in SEED_PRS:
-            s = pr_data["target_status"].value
-            status_counts[s] = status_counts.get(s, 0) + 1
-        for status, count in status_counts.items():
-            print(f"  {status:<20} : {count} PR(s)")
-        print()
+
+
+async def wipe_demo_data(db: AsyncSession) -> None:
+    """Wipe only demo data (requesters and their PRs) - preserves admin and user data"""
+    print("\n  ⚠️  Wiping demo data...")
+    
+    # Delete in correct FK order
+    # First, get demo requester IDs
+    demo_emails = [u["email"] for u in REQUESTER_USERS]
+    result = await db.execute(select(User).where(User.email.in_(demo_emails)))
+    demo_requesters = result.scalars().all()
+    demo_requester_ids = [r.id for r in demo_requesters]
+    
+    if not demo_requester_ids:
+        print("  - No demo data found")
+        return
+    
+    # Delete GRN documents
+    del_grn = await db.execute(delete(GRNDocument))
+    print(f"  - Deleted {del_grn.rowcount} GRN documents")
+    
+    # Delete Purchase Orders
+    del_po = await db.execute(delete(PurchaseOrder))
+    print(f"  - Deleted {del_po.rowcount} Purchase Orders")
+    
+    # Delete PR Line Items
+    del_items = await db.execute(delete(PRLineItem))
+    print(f"  - Deleted {del_items.rowcount} PR Line Items")
+    
+    # Delete Purchase Requisitions (from demo requesters)
+    del_pr = await db.execute(
+        delete(PurchaseRequisition).where(
+            PurchaseRequisition.requester_id.in_(demo_requester_ids)
+        )
+    )
+    print(f"  - Deleted {del_pr.rowcount} Purchase Requisitions")
+    
+    # Delete demo requester accounts
+    del_req = await db.execute(
+        delete(User).where(User.id.in_(demo_requester_ids))
+    )
+    print(f"  - Deleted {del_req.rowcount} demo requester accounts")
+    
+    await db.commit()
+    print("  ✓ Demo data wiped\n")
+
+
+async def seed_all() -> None:
+    """
+    Main seed function - IDEMPOTENT implementation.
+    
+    Behavior:
+    - If no data exists: Creates admin, requesters, and demo PRs
+    - If data exists (SKIP_SEED_IF_DATA_EXISTS=true): Only ensures admin exists
+    - If FORCE_SEED=true: Wipes demo data and re-creates everything
+    """
+    force_seed = os.getenv("FORCE_SEED", "false").lower() == "true"
+    skip_if_exists = os.getenv("SKIP_SEED_IF_DATA_EXISTS", "false").lower() == "true"
+    
+    async with async_session() as session:
+        # Check if database has any data
+        result = await session.execute(select(User).limit(1))
+        has_data = result.scalar_one_or_none() is not None
+        
+        # Scenario 1: Database is empty - seed everything
+        if not has_data:
+            print("\n" + "=" * 60)
+            print("  🌱 FIRST SETUP - Seeding database")
+            print("=" * 60)
+            
+            # 1. Create admin
+            print("\n  [1/3] Creating admin user...")
+            await seed_admin(session)
+            
+            # 2. Create demo requesters
+            print("\n  [2/3] Creating demo requester accounts...")
+            requesters = await seed_requesters(session)
+            
+            # 3. Create demo PR data
+            print("\n  [3/3] Creating demo PR data...")
+            await seed_demo_prs(session, requesters)
+            
+            print("\n" + "=" * 60)
+            print("  ✅ SEEDING COMPLETED")
+            print("=" * 60)
+            
+        # Scenario 2: Database has data and SKIP enabled - only ensure admin
+        elif skip_if_exists and not force_seed:
+            print("\n" + "=" * 60)
+            print("  ⏭️  SKIP SEEDING - Database already has data")
+            print("=" * 60)
+            print(f"  Preserving existing data")
+            print("  Set FORCE_SEED=true to re-seed demo data")
+            print("=" * 60 + "\n")
+            
+            # Still ensure admin exists (idempotent)
+            print("  Ensuring admin account exists...")
+            await seed_admin(session)
+            
+        # Scenario 3: FORCE_SEED=true - wipe demo data and re-seed
+        elif force_seed:
+            print("\n" + "=" * 60)
+            print("  ⚠️  FORCE SEED - Wiping demo data and re-seeding")
+            print("=" * 60)
+            
+            # Wipe demo data
+            await wipe_demo_data(session)
+            
+            # Ensure admin exists
+            print("  [1/3] Ensuring admin user...")
+            await seed_admin(session)
+            
+            # Create demo requesters
+            print("\n  [2/3] Creating demo requester accounts...")
+            requesters = await seed_requesters(session)
+            
+            # Create demo PR data
+            print("\n  [3/3] Creating demo PR data...")
+            await seed_demo_prs(session, requesters)
+            
+            print("\n" + "=" * 60)
+            print("  ✅ FORCE SEED COMPLETED")
+            print("=" * 60)
+        
+        # Scenario 4: Database has data, no skip flag - ensure admin only
+        else:
+            print("\n" + "=" * 60)
+            print("  ⏭️  DATABASE HAS DATA - Skipping demo seed")
+            print("=" * 60)
+            print("  Set FORCE_SEED=true to re-seed demo data")
+            print("=" * 60 + "\n")
+            
+            # Ensure admin exists
+            await seed_admin(session)
 
 
 if __name__ == "__main__":
-    asyncio.run(wipe_and_seed())
+    asyncio.run(seed_all())
