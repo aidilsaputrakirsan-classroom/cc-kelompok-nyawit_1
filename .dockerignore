@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README*.md
+LICENSE
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Environment files (use .env.docker instead)
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Node modules
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Uploads (will be mounted as volume)
+backend/uploads/*
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/
