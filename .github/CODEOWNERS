@@ -1,0 +1,24 @@
+# =============================================
+# CODEOWNERS — Cloud Team XX
+# =============================================
+# Setiap baris: pola file → username GitHub reviewer
+# Reviewer otomatis ditambahkan saat PR mengubah file terkait
+
+# Backend — Lead Backend
+/backend/                @imsatonito-lead-backend
+
+# Frontend — Lead Frontend
+/frontend/               @username-lead-frontend
+
+# Docker & Infrastructure — Lead DevOps
+docker-compose.yml       @username-lead-devops
+/backend/Dockerfile      @username-lead-devops
+/frontend/Dockerfile     @username-lead-devops
+Makefile                 @username-lead-devops
+
+# Documentation — Lead QA & Docs
+README.md                @username-lead-qa
+/docs/                   @username-lead-qa
+
+# CI/CD (jika 5 orang) — Lead CI/CD
+# /.github/workflows/   @username-lead-cicd
