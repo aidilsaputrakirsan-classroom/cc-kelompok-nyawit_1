@@ -1,0 +1,57 @@
+# ============================================
+# CODEOWNERS - SiCure Project
+# ============================================
+# Format: path_pattern @username1 @username2
+# 
+# Rules:
+# - Code owners MUST approve PRs for their paths
+# - Admin (@imsatonito) can bypass if "Include administrators" is unchecked
+# - CI pipeline must pass before merging
+
+# ============================================
+# BACKEND - Lead Backend (Muchlis)
+# ============================================
+backend/ @imsatonito
+
+# ============================================
+# FRONTEND - Lead Frontend (Placeholder)
+# ============================================
+frontend/ @PLACEHOLDER_FRONTEND @imsatonito
+
+# ============================================
+# DEVOPS/INFRASTRUCTURE - Lead DevOps (Placeholder)
+# ============================================
+docker-compose*.yml @PLACEHOLDER_DEVOPS @imsatonito
+.github/workflows/ @PLACEHOLDER_DEVOPS @imsatonito
+scripts/ @PLACEHOLDER_DEVOPS @imsatonito
+Dockerfile @PLACEHOLDER_DEVOPS @imsatonito
+*/Dockerfile* @PLACEHOLDER_DEVOPS @imsatonito
+
+# ============================================
+# DOCUMENTATION - Lead QA & Docs (Placeholder)
+# ============================================
+docs/ @PLACEHOLDER_QA @imsatonito
+*.md @PLACEHOLDER_QA @imsatonito
+
+# ============================================
+# ROOT FILES - Chairman (Muchlis)
+# ============================================
+package*.json @imsatonito
+.env* @imsatonito
+.dockerignore @imsatonito
+.gitignore @imsatonito
+mise.toml @imsatonito
+
+# ============================================
+# HOW TO UPDATE PLACEHOLDERS
+# ============================================
+# Replace these placeholders with actual GitHub usernames:
+#   @PLACEHOLDER_FRONTEND → @username_frontend_lead
+#   @PLACEHOLDER_DEVOPS → @username_devops_lead_1 @username_devops_lead_2
+#   @PLACEHOLDER_QA → @username_qa_lead
+#
+# Example after update:
+#   frontend/ @ranayachintya @imsatonito
+#   docker-compose*.yml @andiadamf @ahmadbaihaqi @imsatonito
+#   docs/ @azzahraatikah @imsatonito
+# ============================================
