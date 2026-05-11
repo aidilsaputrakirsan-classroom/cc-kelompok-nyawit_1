@@ -144,7 +144,3 @@ main
 Setiap branch akan melalui proses Pull Request sebelum digabungkan ke branch `main`.
 
 ---
-
-## 8. Penutup
-
-Workflow Git yang terstruktur membantu tim dalam mengelola perubahan kode, mempermudah proses kolaborasi, serta mengurangi konflik saat development berlangsung.
