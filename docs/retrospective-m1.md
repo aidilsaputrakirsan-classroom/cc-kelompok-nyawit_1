@@ -22,4 +22,4 @@
 | Ranaya | Frontend |
 | Andi | DevOps |
 | Baihaqi | DevOps |
-| Zahra | QA & Docs |
+| Zahra | QA & Docs |;
