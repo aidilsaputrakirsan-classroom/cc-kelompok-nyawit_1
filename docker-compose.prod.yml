@@ -1,108 +1,17 @@
-version: '3.8'
-
-# ============================================================
-# SiCure - Production Docker Compose
-# Menggunakan images dari Docker Hub
-# ============================================================
-# Usage:
-#   docker compose -f docker-compose.prod.yml up -d
-# ============================================================
+# Production overrides — gunakan dengan:
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: sicure-postgres-prod
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sicure_db}
-      POSTGRES_USER: ${POSTGRES_USER:-sicure_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "${DB_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - sicure-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sicure_user} -d ${POSTGRES_DB:-sicure_db}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
-
-  # Backend API - Pull from Docker Hub
   backend:
-    image: ${DOCKER_HUB_USERNAME:-yourusername}/sicure-backend:${IMAGE_TAG:-latest}
-    container_name: sicure-backend-prod
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sicure_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sicure_db}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
-      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://yourdomain.com}
-      UPLOAD_DIR: /app/uploads
-      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
-      APP_ENV: production
-      SKIP_SEED_IF_DATA_EXISTS: "true"
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
-    volumes:
-      - backend_uploads:/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - sicure-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
+      - DEBUG=false
+      - CORS_ORIGINS=https://yourdomain.com
+    restart: always
 
-  # Frontend - Pull from Docker Hub
   frontend:
-    image: ${DOCKER_HUB_USERNAME:-yourusername}/sicure-frontend:${IMAGE_TAG:-latest}
-    container_name: sicure-frontend-prod
-    environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
-    depends_on:
-      - backend
-    networks:
-      - sicure-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.5'
+    restart: always
 
-volumes:
-  postgres_data:
-    driver: local
-  backend_uploads:
-    driver: local
-
-networks:
-  sicure-network:
-    driver: bridge
+  db:
+    restart: always
+    # Tidak expose port ke host di production
+    ports: !reset []

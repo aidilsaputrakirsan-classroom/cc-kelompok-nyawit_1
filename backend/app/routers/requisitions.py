@@ -99,12 +99,14 @@ async def list_my_requisitions(
     page: int = Query(1, ge=1, description="Nomor halaman"),
     per_page: int = Query(10, ge=1, le=100, description="Jumlah item per halaman"),
     status_filter: PRStatus | None = Query(None, alias="status", description="Filter berdasarkan status"),
+    category: str | None = Query(None, description="Filter berdasarkan kategori item (mencari di nama item)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Menampilkan daftar PR milik requester yang sedang login.
-    Mendukung pagination dan filter berdasarkan status.
+    Mendukung pagination dan filter berdasarkan status dan kategori.
+    Filter kategori akan mencari PR yang memiliki line items dengan nama mengandung kata kunci kategori.
     """
     # Base query — only own PRs
     base = select(PurchaseRequisition).where(
@@ -113,6 +115,14 @@ async def list_my_requisitions(
 
     if status_filter is not None:
         base = base.where(PurchaseRequisition.status == status_filter)
+    
+    # Filter by category - find PRs that have line items containing the category keyword
+    if category is not None:
+        base = (
+            base.join(PRLineItem)
+            .where(PRLineItem.item_name.ilike(f"%{category}%"))
+            .distinct()
+        )
 
     # Count total
     count_q = select(func.count()).select_from(base.subquery())
@@ -180,6 +190,45 @@ async def get_requisition_detail(
     return APIResponse(
         success=True,
         data=PROut.model_validate(pr).model_dump(mode="json"),
+        message="OK",
+    )
+
+
+# ── GET /categories ───────────────────────────────────────────────
+@router.get(
+    "/categories",
+    summary="Get unique categories from line items",
+)
+async def get_item_categories(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mendapatkan daftar kategori unik dari nama item yang pernah dibuat.
+    Kategori diekstrak dari kata-kata unik dalam item_name.
+    """
+    # Get all distinct item names for this user
+    result = await db.execute(
+        select(PRLineItem.item_name)
+        .join(PurchaseRequisition)
+        .where(PurchaseRequisition.requester_id == current_user.id)
+        .distinct()
+    )
+    item_names = [row[0] for row in result.all()]
+    
+    # Extract unique keywords (simple approach: split by space and get unique words)
+    keywords = set()
+    for name in item_names:
+        # Split by common separators and get individual words
+        words = name.lower().replace('-', ' ').replace('_', ' ').split()
+        keywords.update([word for word in words if len(word) > 2])  # Filter out very short words
+    
+    # Return sorted list of keywords as potential categories
+    categories = sorted(list(keywords))
+    
+    return APIResponse(
+        success=True,
+        data={"categories": categories},
         message="OK",
     )
 
