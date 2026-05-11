@@ -26,7 +26,16 @@ export default function ConfirmModal({
   if (!isOpen) return null;
 
   const getButtonClass = () => {
-    return "btn-primary";
+    switch (variant) {
+      case "danger":
+        return "btn-danger";
+      case "warning":
+        return "btn-warning";
+      case "info":
+        return "btn-info";
+      default:
+        return "btn-primary";
+    }
   };
 
   return (

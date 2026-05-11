@@ -1,6 +1,6 @@
 # ☁️ SiCure — Sistem Information Procurement
 
-![CI](https://github.com/aidilsaputrakirsan-classroom/cc-kelompok-nyawit_1/actions/workflows/ci.yml/badge.svg)
+![CI Pipeline](https://github.com/aidilsaputrakirsan-classroom/cc-kelompok-nyawit_1/actions/workflows/ci.yml/badge.svg)
 
 SiCure (Sistem Information Procurement) merupakan aplikasi berbasis cloud yang dirancang untuk membantu organisasi dalam mengelola proses pengadaan barang/jasa secara digital, terstruktur, dan transparan.
 

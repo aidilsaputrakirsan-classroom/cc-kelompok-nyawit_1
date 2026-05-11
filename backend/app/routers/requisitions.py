@@ -278,9 +278,10 @@ async def update_requisition(
     pr.title = body.title
     pr.justification = body.justification
 
-    # Remove old line items
-    for old_item in pr.line_items:
-        await db.delete(old_item)
+    # Remove old line items by clearing the relationship list
+    # This triggers cascade delete automatically
+    pr.line_items.clear()
+    await db.flush()  # Ensure deletions are processed
 
     # Calculate new total and create new line items
     total = sum(
@@ -299,9 +300,18 @@ async def update_requisition(
             subtotal=subtotal,
         )
         db.add(line)
+        # Explicitly add to relationship list
+        pr.line_items.append(line)
 
     await db.commit()
-    await db.refresh(pr, attribute_names=["line_items"])
+    
+    # Re-fetch the PR with a fresh query to avoid lazy loading issues
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(selectinload(PurchaseRequisition.line_items))
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
 
     return APIResponse(
         success=True,
