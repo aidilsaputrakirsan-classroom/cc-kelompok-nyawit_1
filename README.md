@@ -246,9 +246,25 @@ sicure/
 ├── package.json                 # Root scripts (dev, build, db:migrate, db:seed, test)
 ├── README-example.md            # Dokumentasi lengkap
 ├── DOCKER_GUIDE.md              # Panduan Docker lengkap
-├── docker-compose.yml           # Docker Compose configuration
+├── docker-compose.yml           # Docker Compose configuration (wrapper)
+├── docker-compose.prod.yml      # Production overrides (wrapper)
 ├── .env.example                 # Template environment variables
 ├── .dockerignore                # Docker ignore rules
+│
+├── docker/                      # Docker & Infrastructure configurations
+│   ├── README.md                # Docker documentation
+│   ├── compose/                 # Docker Compose files
+│   │   ├── docker-compose.yml
+│   │   └── docker-compose.prod.yml
+│   ├── dockerfiles/             # Dockerfile copies for reference
+│   │   ├── Dockerfile.backend
+│   │   ├── Dockerfile.frontend
+│   │   └── Dockerfile.frontend.dev
+│   └── scripts/                 # Docker management scripts
+│       ├── start-dev.sh
+│       ├── stop-dev.sh
+│       ├── build-and-push.sh
+│       └── deploy-from-hub.sh
 │
 ├── backend/
 │   ├── Dockerfile               # Backend Docker image
@@ -325,10 +341,6 @@ sicure/
 │               ├── Dashboard.tsx  # All PRs + status filter
 │               ├── PRDetail.tsx   # Review/Approve/Reject/Issue PO/Verify
 │               └── PODetail.tsx   # PO detail view
-│
-└── scripts/
-    ├── start-dev.sh             # Start Docker development environment
-    └── stop-dev.sh              # Stop Docker environment
 ```
 
 ---
@@ -452,7 +464,7 @@ Internal project — Universitas.
 
 ## 📋 Hasil Pengujian 
 
-- [Dokumentasi hasil testing semua endpoint via Swagger](docs/api-test-result.md)
-- [Dokumentasi UI testing](docs/ui-test-results.md)
-- [Dokumentasi Auth testing](docs/modul4-auth.md)
-- [Dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
+- [Dokumentasi hasil testing semua endpoint via Swagger](docs/testing/api-test-result.md)
+- [Dokumentasi UI testing](docs/testing/ui-test-results.md)
+- [Testing Guide](docs/testing/testing-guide.md)
+- [Dokumentasi perbandingan ukuran image](docs/architecture/image-comparison.md)

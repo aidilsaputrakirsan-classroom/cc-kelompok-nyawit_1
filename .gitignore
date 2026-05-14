@@ -2,7 +2,23 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+*.egg-info/
+*.egg
+
+# Environment files
 .env
+.env.local
+.env.*.local
+!.env.example
 
 # Virtual environments
 venv/
