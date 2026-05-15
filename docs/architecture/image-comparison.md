@@ -7,7 +7,7 @@ Perintah yang digunakan untuk melihat ukuran Docker image:
 ```bash
 docker images
 ```
-![ss](../../frontend/image/modul5.png)
+![ss](../Images/modul5.png)
 
 | Image | Disk Usage | Content Size |
 |-------|-----------|--------------|

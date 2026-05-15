@@ -1,6 +1,3 @@
-# Docker Compose wrapper for development
-# This file ensures docker compose works from project root
-
 services:
   # PostgreSQL Database
   postgres:
@@ -26,7 +23,7 @@ services:
   # Backend API
   backend:
     build:
-      context: .
+      context: ../..
       dockerfile: backend/Dockerfile
     container_name: sicure-backend
     environment:
@@ -40,6 +37,9 @@ services:
       UPLOAD_DIR: ${UPLOAD_DIR:-./uploads}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
       APP_ENV: ${APP_ENV:-development}
+      # Migration runs automatically on startup
+      # Seeding is disabled by default to preserve existing data
+      # Set SEED_ON_STARTUP=true for initial setup only
       SEED_ON_STARTUP: "false"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -55,7 +55,7 @@ services:
   # Frontend (Development mode with hot reload)
   frontend:
     build:
-      context: .
+      context: ../..
       dockerfile: frontend/Dockerfile.dev
     container_name: sicure-frontend
     environment:

@@ -11,7 +11,7 @@ services:
   frontend:
     restart: always
 
-  db:
+  postgres:
     restart: always
     # Tidak expose port ke host di production
     ports: !reset []

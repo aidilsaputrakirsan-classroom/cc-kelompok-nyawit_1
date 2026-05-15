@@ -1,4 +1,5 @@
 """Test Purchase Requisition endpoints untuk SiCure."""
+import asyncio
 import pytest
 
 
@@ -196,10 +197,12 @@ async def test_delete_requisition(client, auth_headers):
 @pytest.mark.asyncio
 async def test_filter_requisitions_by_status(client, auth_headers):
     """Test filter PR berdasarkan status."""
-    # Buat beberapa PR
-    for _ in range(3):
+    import time
+    
+    # Buat beberapa PR dengan title unik untuk menghindari collision
+    for i in range(3):
         await client.post("/api/v1/requisitions/", json={
-            "title": "Filter Test PR",
+            "title": f"Filter Test PR {i} - {int(time.time() * 1000)}",
             "justification": "Test",
             "items": [{
                 "item_name": "Item",
@@ -208,6 +211,8 @@ async def test_filter_requisitions_by_status(client, auth_headers):
                 "estimated_unit_price": 1000
             }]
         }, headers=auth_headers)
+        # Small delay to ensure unique timestamps
+        await asyncio.sleep(0.01)
     
     # Filter by status SUBMITTED
     response = await client.get("/api/v1/requisitions/?status=SUBMITTED", headers=auth_headers)
