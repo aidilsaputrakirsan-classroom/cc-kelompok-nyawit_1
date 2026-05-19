@@ -118,16 +118,34 @@ async def auth_headers(client: AsyncClient):
 
 
 @pytest.fixture
-async def admin_auth_headers(client: AsyncClient):
+async def admin_auth_headers(client: AsyncClient, db_session: AsyncSession):
     """
-    Helper: Login sebagai admin (harus sudah ada dari seed).
-    Note: Untuk test yang butuh admin, pastikan seeder sudah jalan atau buat admin di test.
+    Helper: Create admin user and login, return auth headers.
     """
-    # Pertama, buat admin user (karena di test DB belum ada)
     from app.core.security import hash_password
     from app.models.user import User
     from app.models.enums import UserRole
     
-    # Kita perlu akses langsung ke db_session untuk membuat admin
-    # Ini akan di-handle oleh test yang membutuhkan admin
-    pass
+    # Create admin user directly in database
+    admin_user = User(
+        email="admin@test.com",
+        hashed_password=hash_password("AdminPass123"),
+        full_name="Admin User",
+        role=UserRole.ADMIN
+    )
+    db_session.add(admin_user)
+    await db_session.commit()
+    
+    # Login as admin
+    login_data = {
+        "email": "admin@test.com",
+        "password": "AdminPass123"
+    }
+    
+    response = await client.post("/api/v1/auth/login", json=login_data)
+    data = response.json()
+    
+    # Extract access token from APIResponse structure
+    access_token = data["data"]["access_token"]
+    
+    return {"Authorization": f"Bearer {access_token}"}
