@@ -436,7 +436,7 @@ export default function AdminPRDetail() {
               <span className="detail-label">Commercial Invoice</span>
               <span className="detail-value">
                 <a 
-                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:8000'}/${grn.commercial_invoice_url ?? ''}`} 
+                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.commercial_invoice_url ?? ''}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
@@ -448,7 +448,7 @@ export default function AdminPRDetail() {
               <span className="detail-label">Foto Barang</span>
               <span className="detail-value">
                 <a 
-                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:8000'}/${grn.goods_photo_url ?? ''}`} 
+                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.goods_photo_url ?? ''}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
