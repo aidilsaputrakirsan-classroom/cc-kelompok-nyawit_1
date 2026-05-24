@@ -345,16 +345,19 @@ jobs:
 
           if [ -n "${{ vars.VITE_API_URL }}" ]; then
             export VITE_API_URL="${{ vars.VITE_API_URL }}"
+            export VITE_API_BASE_URL="${{ vars.VITE_API_URL }}"
             export REACT_APP_API_URL="${{ vars.VITE_API_URL }}"
             echo "✓ VITE_API_URL dari repo Variables: $VITE_API_URL"
           else
-            export VITE_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api"
-            export REACT_APP_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api"
-            echo "✓ VITE_API_URL auto-generate: $VITE_API_URL"
+            export VITE_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api/v1"
+            export VITE_API_BASE_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api/v1"
+            export REACT_APP_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api/v1"
+            echo "✓ VITE_API_BASE_URL auto-generate: $VITE_API_BASE_URL"
           fi
 
-          echo "VITE_API_URL=${VITE_API_URL}"            > .env.production
-          echo "REACT_APP_API_URL=${REACT_APP_API_URL}" >> .env.production
+          echo "VITE_API_URL=${VITE_API_URL}"                > .env.production
+          echo "VITE_API_BASE_URL=${VITE_API_BASE_URL}"     >> .env.production
+          echo "REACT_APP_API_URL=${REACT_APP_API_URL}"     >> .env.production
 
           ${{ steps.nodemeta.outputs.build_cmd }}
 
