@@ -1,0 +1,632 @@
+name: CD — Deploy ke DeployCCC
+
+on:
+  workflow_run:
+    workflows:
+      - "CI Pipeline"
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      force_full_rebuild:
+        description: "Paksa build ulang frontend (abaikan deteksi perubahan)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  DEPLOY_ENDPOINT: https://deploycc.akhzafachrozy.my.id
+  REPO_NAME: ${{ github.event.repository.name }}
+  DOCS_URL: https://github.com/akhzaozy/deploycloudcomputing
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  #  STEP 1 — Deteksi perubahan
+  # ─────────────────────────────────────────────────────────────────
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      # frontend_significant = perubahan yang BENERAN butuh rebuild
+      frontend_significant: ${{ steps.filter.outputs.frontend_significant }}
+      # frontend_cosmetic   = perubahan yang TIDAK butuh rebuild (README, dll)
+      frontend_cosmetic:    ${{ steps.filter.outputs.frontend_cosmetic }}
+      backend_changed:      ${{ steps.filter.outputs.backend }}
+      requirements_changed: ${{ steps.filter.outputs.requirements }}
+      initial_commit:       ${{ steps.base.outputs.initial }}
+      head_sha:             ${{ steps.ctx.outputs.head_sha }}
+
+    steps:
+      - name: Resolve commit SHA
+        id: ctx
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            sha="${{ github.event.workflow_run.head_sha }}"
+            branch="${{ github.event.workflow_run.head_branch }}"
+            echo "Trigger: workflow_run dari CI"
+          else
+            sha="${{ github.sha }}"
+            branch="${{ github.ref_name }}"
+            echo "Trigger: workflow_dispatch (manual)"
+          fi
+          echo "  SHA    : $sha"
+          echo "  Branch : $branch"
+          echo "head_sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.ctx.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Resolve diff base
+        id: base
+        run: |
+          head="${{ steps.ctx.outputs.head_sha }}"
+          if git rev-parse "${head}~1" >/dev/null 2>&1; then
+            base=$(git rev-parse "${head}~1")
+            echo "✓ Parent commit: $base"
+            echo "initial=false" >> "$GITHUB_OUTPUT"
+          else
+            base="$head"
+            echo "⚠ Initial commit → semua file dianggap berubah"
+            echo "initial=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      # paths-filter dengan whitelist + blacklist untuk granular detection
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          ref: ${{ steps.ctx.outputs.head_sha }}
+          base: ${{ steps.base.outputs.base }}
+          filters: |
+            # ── FRONTEND SIGNIFICANT ──
+            # Perubahan yang BERDAMPAK ke bundle output.
+            # Pakai whitelist eksplisit + exclude file kosmetik.
+            frontend_significant:
+              - 'frontend/**'
+              - '!frontend/README*'
+              - '!frontend/CHANGELOG*'
+              - '!frontend/LICENSE*'
+              - '!frontend/.gitignore'
+              - '!frontend/.gitattributes'
+              - '!frontend/.editorconfig'
+              - '!frontend/.prettierrc*'
+              - '!frontend/.eslintignore'
+              - '!frontend/docs/**'
+              - '!frontend/.vscode/**'
+              - '!frontend/.idea/**'
+              - '!frontend/.github/**'
+
+            # ── FRONTEND COSMETIC ──
+            # Cuma docs/config tool — TIDAK butuh rebuild.
+            frontend_cosmetic:
+              - 'frontend/README*'
+              - 'frontend/CHANGELOG*'
+              - 'frontend/LICENSE*'
+              - 'frontend/docs/**'
+              - 'frontend/.vscode/**'
+              - 'frontend/.idea/**'
+              - 'frontend/.gitignore'
+              - 'frontend/.editorconfig'
+              - 'frontend/.prettierrc*'
+              - 'frontend/.eslintignore'
+
+            # ── BACKEND ──
+            backend:
+              - 'backend/**'
+
+            # ── REQUIREMENTS (Python deps) ──
+            requirements:
+              - 'backend/requirements.txt'
+              - 'backend/pyproject.toml'
+              - 'backend/setup.py'
+              - 'backend/Pipfile'
+              - 'backend/Pipfile.lock'
+
+  # ─────────────────────────────────────────────────────────────────
+  #  STEP 2 — Deploy
+  # ─────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: detect-changes
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect-changes.outputs.head_sha }}
+
+      - name: Validate repo structure
+        run: |
+          set -e
+          missing=()
+          [ -d "frontend" ] || missing+=("frontend/")
+          [ -d "backend" ]  || missing+=("backend/")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Folder wajib tidak ada: ${missing[*]}"
+            exit 1
+          fi
+
+          if [ ! -f "frontend/package.json" ]; then
+            echo "::error::frontend/package.json tidak ditemukan"
+            exit 1
+          fi
+
+          if ! ls backend/{main,app,server,asgi,api}.py >/dev/null 2>&1; then
+            echo "::warning::Tidak ditemukan entry point standar di backend/"
+          fi
+
+          echo "✓ Struktur repo valid"
+
+      # ──────────────────────────────────────────────────────────────
+      # Compute build decision
+      # ──────────────────────────────────────────────────────────────
+      - name: Compute deploy flags
+        id: flags
+        run: |
+          set -e
+
+          fe_sig="${{ needs.detect-changes.outputs.frontend_significant }}"
+          fe_cos="${{ needs.detect-changes.outputs.frontend_cosmetic }}"
+          be_changed="${{ needs.detect-changes.outputs.backend_changed }}"
+          req_changed="${{ needs.detect-changes.outputs.requirements_changed }}"
+          initial="${{ needs.detect-changes.outputs.initial_commit }}"
+          force="${{ github.event.inputs.force_full_rebuild }}"
+
+          # ── Logika build frontend ──
+          # Build kalau: initial commit ATAU significant change ATAU force.
+          # Cosmetic-only change → SKIP build.
+          if [ "$initial" = "true" ] || [ "$fe_sig" = "true" ] || [ "$force" = "true" ]; then
+            do_build="1"
+            if [ "$initial" = "true" ]; then
+              fe_status="🔨 BUILD (initial commit — first deploy)"
+            elif [ "$force" = "true" ]; then
+              fe_status="🔨 BUILD (force_full_rebuild=true)"
+            else
+              fe_status="🔨 BUILD (perubahan signifikan terdeteksi)"
+            fi
+            prebuilt_fe="1"
+            skip_fe="0"
+          else
+            do_build="0"
+            if [ "$fe_cos" = "true" ]; then
+              fe_status="⏭  SKIP BUILD (cuma perubahan kosmetik — README/docs/dotfile)"
+            else
+              fe_status="⏭  SKIP BUILD (frontend tidak berubah)"
+            fi
+            prebuilt_fe="0"
+            skip_fe="1"
+          fi
+
+          # ── Logika backend pip install ──
+          if [ "$req_changed" = "true" ] || [ "$force" = "true" ]; then
+            skip_be="0"
+            be_install_status="📦 INSTALL (requirements.txt berubah)"
+          else
+            skip_be="1"
+            be_install_status="⏭  SKIP pip install"
+          fi
+
+          # ── Logika service restart ──
+          if [ "$be_changed" = "true" ] || [ "$force" = "true" ]; then
+            restart_status="🔄 RESTART Uvicorn"
+          else
+            restart_status="✋ NO restart (zero downtime)"
+          fi
+
+          echo "do_build=$do_build"       >> "$GITHUB_OUTPUT"
+          echo "prebuilt_fe=$prebuilt_fe" >> "$GITHUB_OUTPUT"
+          echo "skip_fe_build=$skip_fe"   >> "$GITHUB_OUTPUT"
+          echo "skip_be_install=$skip_be" >> "$GITHUB_OUTPUT"
+
+          # Print plan
+          {
+            echo "## 📋 Deploy Plan"
+            echo ""
+            echo "| Komponen | Status |"
+            echo "|----------|--------|"
+            echo "| Frontend | $fe_status |"
+            echo "| Python deps | $be_install_status |"
+            echo "| Backend service | $restart_status |"
+            echo ""
+            echo "**Flags ke DeployCC:**"
+            echo "- \`prebuilt_fe=$prebuilt_fe\`"
+            echo "- \`skip_fe_build=$skip_fe\`"
+            echo "- \`skip_be_install=$skip_be\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Normalize repo name
+        id: repo
+        run: |
+          name=$(echo "${{ env.REPO_NAME }}" \
+                  | tr '[:upper:]' '[:lower:]' \
+                  | sed 's/[^a-z0-9-]//g' \
+                  | cut -c1-40)
+
+          if [ ${#name} -lt 3 ]; then
+            echo "::error::Nama repo terlalu pendek: '$name'"
+            exit 1
+          fi
+
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "✓ Repo name: $name"
+
+      # ──────────────────────────────────────────────────────────────
+      # BUILD FRONTEND — hanya kalau do_build=1
+      # ──────────────────────────────────────────────────────────────
+      - name: Detect Node version & package manager
+        id: nodemeta
+        if: steps.flags.outputs.do_build == '1'
+        run: |
+          set -e
+          cd frontend
+
+          if [ -f "pnpm-lock.yaml" ]; then
+            pm="pnpm"
+            install_cmd="pnpm install --frozen-lockfile"
+            build_cmd="pnpm run build"
+          elif [ -f "yarn.lock" ]; then
+            pm="yarn"
+            install_cmd="yarn install --frozen-lockfile"
+            build_cmd="yarn build"
+          else
+            pm="npm"
+            install_cmd="npm ci"
+            build_cmd="npm run build"
+          fi
+
+          node_ver=$(node -e "
+            try {
+              const p = require('./package.json');
+              const v = p.engines && p.engines.node;
+              if (v) console.log(v.replace(/[^0-9.]/g,'').split('.')[0] || '20');
+              else console.log('20');
+            } catch(e) { console.log('20'); }
+          " 2>/dev/null || echo "20")
+          node_ver=$(echo "$node_ver" | grep -oE '^[0-9]+' | head -1)
+          [ -z "$node_ver" ] && node_ver="20"
+
+          echo "pm=$pm"                   >> "$GITHUB_OUTPUT"
+          echo "install_cmd=$install_cmd" >> "$GITHUB_OUTPUT"
+          echo "build_cmd=$build_cmd"     >> "$GITHUB_OUTPUT"
+          echo "node_ver=$node_ver"       >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        if: steps.flags.outputs.do_build == '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.nodemeta.outputs.node_ver }}
+          cache: ${{ steps.nodemeta.outputs.pm }}
+          cache-dependency-path: |
+            frontend/package-lock.json
+            frontend/yarn.lock
+            frontend/pnpm-lock.yaml
+
+      - name: Install pnpm (kalau perlu)
+        if: steps.flags.outputs.do_build == '1' && steps.nodemeta.outputs.pm == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install frontend dependencies
+        if: steps.flags.outputs.do_build == '1'
+        working-directory: frontend
+        run: |
+          set -e
+          ${{ steps.nodemeta.outputs.install_cmd }}
+
+      - name: Build frontend
+        if: steps.flags.outputs.do_build == '1'
+        working-directory: frontend
+        env:
+          NODE_ENV: production
+        run: |
+          set -e
+
+          REPO_SLUG=$(echo "${{ env.REPO_NAME }}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9-]//g' \
+            | cut -c1-40)
+
+          if [ -n "${{ vars.VITE_API_URL }}" ]; then
+            export VITE_API_URL="${{ vars.VITE_API_URL }}"
+            export REACT_APP_API_URL="${{ vars.VITE_API_URL }}"
+            echo "✓ VITE_API_URL dari repo Variables: $VITE_API_URL"
+          else
+            export VITE_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api"
+            export REACT_APP_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api"
+            echo "✓ VITE_API_URL auto-generate: $VITE_API_URL"
+          fi
+
+          echo "VITE_API_URL=${VITE_API_URL}"            > .env.production
+          echo "REACT_APP_API_URL=${REACT_APP_API_URL}" >> .env.production
+
+          ${{ steps.nodemeta.outputs.build_cmd }}
+
+          if [ -d "dist" ]; then
+            outdir="dist"
+          elif [ -d "build" ]; then
+            outdir="build"
+          else
+            echo "::error::Build selesai tapi folder dist/ atau build/ tidak ada"
+            exit 1
+          fi
+
+          file_count=$(find "$outdir" -type f | wc -l)
+          size=$(du -sh "$outdir" | cut -f1)
+
+          if [ "$file_count" -lt 2 ]; then
+            echo "::error::Folder $outdir kosong"
+            exit 1
+          fi
+
+          echo "✓ Build berhasil: $outdir/ ($file_count file, $size)"
+
+      # ──────────────────────────────────────────────────────────────
+      # BUILD ZIP
+      # ──────────────────────────────────────────────────────────────
+      - name: Build deploy package
+        id: pkg
+        run: |
+          set -e
+          repo="${{ steps.repo.outputs.name }}"
+          zipfile="/tmp/${repo}-deploy.zip"
+
+          do_build="${{ steps.flags.outputs.do_build }}"
+
+          if [ "$do_build" = "1" ]; then
+            if [ -d "frontend/dist" ]; then
+              fe_build="frontend/dist"
+            elif [ -d "frontend/build" ]; then
+              fe_build="frontend/build"
+            else
+              echo "::error::Folder build frontend tidak ada padahal do_build=1"
+              exit 1
+            fi
+            echo "Frontend build dir: $fe_build (akan dikirim ke STB)"
+          else
+            echo "Frontend tidak di-build — ZIP tanpa folder dist/"
+          fi
+
+          zip -r "$zipfile" . \
+            -x "*/node_modules/*" \
+            -x "*/node_modules/**" \
+            -x "backend/venv/*" \
+            -x "backend/venv/**" \
+            -x "backend/.venv/*" \
+            -x "backend/.venv/**" \
+            -x "*/__pycache__/*" \
+            -x "**/__pycache__/**" \
+            -x "*.pyc" \
+            -x "**/*.pyc" \
+            -x ".git/*" \
+            -x ".git/**" \
+            -x "**/.DS_Store" \
+            > /dev/null
+
+          size=$(du -h "$zipfile" | cut -f1)
+          size_bytes=$(stat -c%s "$zipfile")
+          file_count=$(unzip -l "$zipfile" | tail -1 | awk '{print $2}')
+
+          echo "✓ ZIP siap: $zipfile ($size, $file_count files)"
+
+          if [ "$size_bytes" -gt 536870912 ]; then
+            echo "::error::ZIP terlalu besar ($size). Limit DeployCC = 512 MB."
+            exit 1
+          fi
+
+          echo "path=$zipfile" >> "$GITHUB_OUTPUT"
+          echo "size=$size"    >> "$GITHUB_OUTPUT"
+      # ──────────────────────────────────────────────────────────────
+      # DEPLOY ke DeployCC
+      # ──────────────────────────────────────────────────────────────
+      - name: Deploy to DeployCC
+        id: deploy
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_API_KEY }}
+        run: |
+          set -e
+          repo="${{ steps.repo.outputs.name }}"
+          zipfile="${{ steps.pkg.outputs.path }}"
+          prebuilt_fe="${{ steps.flags.outputs.prebuilt_fe }}"
+          skip_fe="${{ steps.flags.outputs.skip_fe_build }}"
+          skip_be="${{ steps.flags.outputs.skip_be_install }}"
+
+          if [ -z "$DEPLOY_KEY" ]; then
+            DEPLOY_KEY="deploycc-classroom"
+          fi
+
+          echo "::group::Kirim ke ${{ env.DEPLOY_ENDPOINT }}"
+          echo "  repo            : $repo"
+          echo "  zip size        : ${{ steps.pkg.outputs.size }}"
+          echo "  prebuilt_fe     : $prebuilt_fe"
+          echo "  skip_fe_build   : $skip_fe"
+          echo "  skip_be_install : $skip_be"
+          echo "::endgroup::"
+
+          response_file="/tmp/deploy-response.txt"
+          http_code=$(curl -sS \
+            --http1.1 \
+            --no-keepalive \
+            --max-time 1200 \
+            --connect-timeout 30 \
+            --expect100-timeout 5 \
+            --retry 3 \
+            --retry-delay 15 \
+            --retry-all-errors \
+            --retry-connrefused \
+            -o "$response_file" \
+            -w "%{http_code}" \
+            -X POST "${{ env.DEPLOY_ENDPOINT }}" \
+            -F "key=$DEPLOY_KEY" \
+            -F "repo=$repo" \
+            -F "mode=full" \
+            -F "prebuilt_fe=$prebuilt_fe" \
+            -F "skip_fe_build=$skip_fe" \
+            -F "skip_be_install=$skip_be" \
+            -F "file=@$zipfile" \
+            -F "handle_db_on_server=true" \
+            -A "GitHub-Actions-DeployCC" \
+            -H "Expect:")
+
+          echo "::group::Response dari DeployCC (HTTP $http_code)"
+          cat "$response_file"
+          echo ""
+          echo "::endgroup::"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Deploy gagal dengan HTTP $http_code"
+            exit 1
+          fi
+
+          if grep -q "DEPLOYCC_ERROR" "$response_file"; then
+            echo "::error::DeployCC mengembalikan error"
+            exit 1
+          fi
+
+          if ! grep -q "DEPLOYCC_START" "$response_file"; then
+            echo "::error::Response tidak valid"
+            exit 1
+          fi
+
+          # Extract info dari ADPL output (v1.3 punya field tambahan)
+          get_adpl() {
+            grep "^ADPL:${1}=" "$response_file" | cut -d= -f2- | head -1
+          }
+
+          domain=$(get_adpl domain)
+          backend_live=$(get_adpl backend_live)
+          srv_status=$(get_adpl srv_status)
+          infra_rebuilt=$(get_adpl infra_rebuilt)
+          port=$(get_adpl port)
+          ssh_user=$(get_adpl ssh_user)
+          ssh_pass=$(get_adpl ssh_pass)
+          ssh_cmd=$(get_adpl ssh_cmd)
+          service=$(get_adpl service)
+          env_auto=$(get_adpl env_auto_created)
+          db_user=$(get_adpl db_user)
+          db_name=$(get_adpl db_name)
+          db_host=$(get_adpl db_host)
+
+          # Tulis ke outputs (akan dipakai di summary step)
+          {
+            echo "domain=$domain"
+            echo "backend_live=$backend_live"
+            echo "srv_status=$srv_status"
+            echo "infra_rebuilt=$infra_rebuilt"
+            echo "port=$port"
+            echo "ssh_user=$ssh_user"
+            echo "ssh_pass=$ssh_pass"
+            echo "ssh_cmd=$ssh_cmd"
+            echo "service=$service"
+            echo "env_auto=$env_auto"
+            echo "db_user=$db_user"
+            echo "db_name=$db_name"
+            echo "db_host=$db_host"
+          } >> "$GITHUB_OUTPUT"
+
+      # ──────────────────────────────────────────────────────────────
+      # SUMMARY — tampilan akhir ke GitHub Actions UI
+      # ──────────────────────────────────────────────────────────────
+      - name: Write deploy summary
+        if: always() && steps.deploy.outcome == 'success'
+        run: |
+          live="${{ steps.deploy.outputs.backend_live }}"
+          status="${{ steps.deploy.outputs.srv_status }}"
+          env_auto="${{ steps.deploy.outputs.env_auto }}"
+
+          # Icon untuk backend live status
+          if [ "$live" = "YES" ]; then
+            live_icon="✅ YES"
+          else
+            live_icon="⚠️ $live"
+          fi
+
+          {
+            echo ""
+            echo "## ✅ Deploy Berhasil"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| 🌐 URL | ${{ steps.deploy.outputs.domain }} |"
+            echo "| 🐍 Backend live | $live_icon |"
+            echo "| ⚙️ Service status | \`$status\` |"
+            echo "| 🔌 Uvicorn port | ${{ steps.deploy.outputs.port }} |"
+            echo "| 🏗 Infra rebuilt | ${{ steps.deploy.outputs.infra_rebuilt }} |"
+            echo "| 📦 ZIP size | ${{ steps.pkg.outputs.size }} |"
+            echo ""
+            echo "## 🔐 SSH Access"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| 👤 Username | \`${{ steps.deploy.outputs.ssh_user }}\` |"
+            echo "| 🔑 Password | \`${{ steps.deploy.outputs.ssh_pass }}\` |"
+            echo "| 💻 Command  | \`${{ steps.deploy.outputs.ssh_cmd }}\` |"
+            echo "| 📚 Docs     | [${{ env.DOCS_URL }}](${{ env.DOCS_URL }}) |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Kalau .env auto-generated (deploy pertama) → tampilin DB creds
+          if [ "$env_auto" = "yes" ] && [ -n "${{ steps.deploy.outputs.db_user }}" ]; then
+            {
+              echo "## 🆕 Database Auto-Created"
+              echo ""
+              echo "DeployCC v1.3 otomatis membuat database PostgreSQL & generate \`.env\` saat deploy pertama."
+              echo ""
+              echo "| Field | Value |"
+              echo "|-------|-------|"
+              echo "| 🗄 DB User | \`${{ steps.deploy.outputs.db_user }}\` |"
+              echo "| 🗃 DB Name | \`${{ steps.deploy.outputs.db_name }}\` |"
+              echo "| 🌐 DB Host | \`${{ steps.deploy.outputs.db_host }}\` |"
+              echo ""
+              echo "> 🔒 **Password DB & SECRET_KEY** disimpan di server di \`backend/.env\` (root-readable saja)."
+              echo "> Lihat detail kredensial di **log raw deploy response** (di-collapse di atas)."
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Kalau backend belum live → kasih panduan troubleshoot ringkas
+          if [ "$live" != "YES" ]; then
+            {
+              echo "## ⚠️ Backend Belum Live — Panduan Troubleshoot"
+              echo ""
+              echo "DeployCC v1.3 sudah otomatis: setup \`.env\`, buat DB, install deps."
+              echo "Kalau masih gagal, kemungkinan ada error di code backend. Cek log:"
+              echo ""
+              echo "\`\`\`bash"
+              echo "# 1. SSH ke server"
+              echo "${{ steps.deploy.outputs.ssh_cmd }}"
+              echo ""
+              echo "# 2. Lihat status & log"
+              echo "svc-status                 # status service (alias)"
+              echo "svc-logs                   # tail systemd log live"
+              echo "svc-applog                 # tail app log"
+              echo ""
+              echo "# 3. Edit .env kalau perlu"
+              echo "editenv                    # buka backend/.env di nano"
+              echo "svc-restart                # restart setelah edit"
+              echo "\`\`\`"
+              echo ""
+              echo "Dokumentasi lengkap & list error umum: [${{ env.DOCS_URL }}](${{ env.DOCS_URL }})"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/*-deploy.zip /tmp/deploy-response.txt || true
