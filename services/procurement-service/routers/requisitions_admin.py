@@ -109,7 +109,14 @@ async def review_requisition(
     pr.approval_note = body.approval_note
 
     await db.commit()
-    await db.refresh(pr, attribute_names=["line_items"])
+
+    # Re-fetch PR untuk mendapatkan updated_at yang baru
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(selectinload(PurchaseRequisition.line_items))
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
 
     action = "disetujui" if body.status == PRStatus.APPROVED else "ditolak"
     return APIResponse(
