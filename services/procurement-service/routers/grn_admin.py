@@ -2,7 +2,7 @@
 GRN admin router — admin verifikasi dokumen.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,8 +15,8 @@ from schemas import APIResponse, GRNOut, GRNVerify
 router = APIRouter(prefix="/api/v1/grn/admin", tags=["grn-admin"])
 
 
-async def _require_admin(authorization: str = Header(...)) -> dict:
-    user = await verify_token_with_auth_service(authorization)
+async def _require_admin(request: Request, authorization: str = Header(...)) -> dict:
+    user = await verify_token_with_auth_service(request, authorization)
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Akses ditolak. Hanya admin.")
     return user

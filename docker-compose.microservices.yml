@@ -85,6 +85,14 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:80"
+      SERVICE_NAME: auth-service
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "auth-service"
     depends_on:
       auth-db:
         condition: service_healthy
@@ -107,6 +115,14 @@ services:
       CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:80"
       UPLOAD_DIR: /app/uploads
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
+      SERVICE_NAME: procurement-service
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "procurement-service"
     volumes:
       - procurement_uploads:/app/uploads
     depends_on:

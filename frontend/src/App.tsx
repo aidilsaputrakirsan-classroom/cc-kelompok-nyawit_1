@@ -16,6 +16,7 @@ const RequesterPRDetail = lazy(() => import("./pages/requester/PRDetail"));
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminPRDetail = lazy(() => import("./pages/admin/PRDetail"));
 const AdminPODetail = lazy(() => import("./pages/admin/PODetail"));
+const StatusPage = lazy(() => import("./pages/StatusPage"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -124,6 +125,16 @@ export default function App() {
                   }
                 />
               </Route>
+
+              {/* Status Page (public) */}
+              <Route
+                path="/status"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <StatusPage />
+                  </Suspense>
+                }
+              />
 
               {/* Catch-all */}
               <Route path="*" element={<Navigate to="/login" replace />} />
