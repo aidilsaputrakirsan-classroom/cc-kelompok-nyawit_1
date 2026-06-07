@@ -116,6 +116,24 @@ async def verify_token_with_auth_service(authorization: str = Header(...)) -> di
     return await _call_auth_service(authorization)
 
 
+async def optional_verify_token(authorization: str = Header(None)) -> dict | None:
+    """
+    FastAPI Dependency (degraded mode): verifikasi token jika Auth Service tersedia.
+    Return None jika circuit breaker OPEN atau token tidak ada — endpoint tetap jalan.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    if not auth_circuit.can_execute():
+        logger.warning("Circuit breaker OPEN — degraded mode, skip auth")
+        return None
+
+    try:
+        return await _call_auth_service(authorization)
+    except HTTPException:
+        return None
+
+
 async def require_role_via_auth(roles: list[str], authorization: str = Header(...)) -> dict:
     """
     Verifikasi token DAN cek role user.

@@ -183,3 +183,25 @@ def test_invalid_token_rejected(gateway_url):
         timeout=10,
     )
     assert resp.status_code == 401
+
+
+# ── Test 9: Public endpoint (no auth) ────────────────────────────
+def test_public_endpoint_no_auth(gateway_url):
+    """Endpoint /public dapat diakses tanpa token."""
+    resp = httpx.get(f"{gateway_url}/api/v1/requisitions/public", timeout=10)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert isinstance(data["data"], list)
+    assert "pagination" in data
+
+
+# ── Test 10: Stats endpoint degraded mode (no auth) ─────────────
+def test_stats_degraded_mode(gateway_url):
+    """Endpoint /stats berjalan dalam degraded mode saat tanpa token."""
+    resp = httpx.get(f"{gateway_url}/api/v1/requisitions/stats", timeout=10)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["data"]["degraded"] is True
+    assert isinstance(data["data"]["by_status"], dict)
