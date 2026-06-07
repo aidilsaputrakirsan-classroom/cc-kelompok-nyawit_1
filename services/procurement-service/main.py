@@ -16,7 +16,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+import httpx
+from sqlalchemy import text
+
 from database import engine, Base
+from auth_client import auth_circuit, AUTH_SERVICE_URL, TIMEOUT_SECONDS
 from routers import requisitions, requisitions_admin, purchase_orders, grn, grn_admin
 
 app = FastAPI(
@@ -56,11 +60,58 @@ upload_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 
 
-# ── Health Check ──────────────────────────────────────────────────
+# ── Health Check (Aggregated) ─────────────────────────────────────
 @app.get("/health")
 async def health_check():
+    """
+    Aggregated health check: cek DB + Auth Service + circuit breaker.
+    Status overall = healthy hanya jika semua dependency healthy.
+    """
+    checks = {}
+
+    # 1. Database connectivity
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["database"] = {"status": "healthy"}
+    except Exception as e:
+        checks["database"] = {"status": "unhealthy", "detail": str(e)}
+
+    # 2. Circuit breaker status
+    cb_status = auth_circuit.get_status()
+    checks["circuit_breaker"] = {
+        "status": "healthy" if cb_status["state"] != "OPEN" else "degraded",
+        **cb_status,
+    }
+
+    # 3. Auth Service reachability (non-blocking, short timeout)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{AUTH_SERVICE_URL}/health", timeout=2.0
+            )
+        if resp.status_code == 200:
+            checks["auth_service"] = {"status": "healthy"}
+        else:
+            checks["auth_service"] = {
+                "status": "degraded",
+                "status_code": resp.status_code,
+            }
+    except Exception as e:
+        checks["auth_service"] = {"status": "unhealthy", "detail": str(e)}
+
+    # Overall status
+    statuses = [c["status"] for c in checks.values()]
+    if all(s == "healthy" for s in statuses):
+        overall = "healthy"
+    elif any(s == "unhealthy" for s in statuses):
+        overall = "unhealthy"
+    else:
+        overall = "degraded"
+
     return {
-        "status": "healthy",
+        "status": overall,
         "service": "procurement-service",
         "version": "2.0.0",
+        "checks": checks,
     }

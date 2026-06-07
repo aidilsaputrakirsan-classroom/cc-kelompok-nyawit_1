@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from auth_client import verify_token_with_auth_service
+from auth_client import optional_verify_token, verify_token_with_auth_service
 from database import get_db
 from models import PRLineItem, PRStatus, PurchaseRequisition
 from schemas import (
@@ -144,6 +144,81 @@ async def get_item_categories(
         keywords.update([w for w in words if len(w) > 2])
 
     return APIResponse(success=True, data={"categories": sorted(keywords)}, message="OK")
+
+
+# ── GET /public ────────────────────────────────────────────────────
+# Tidak butuh auth — return PR dengan status publik (APPROVED ke atas).
+@router.get("/public")
+async def list_public_requisitions(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """List PR publik (status APPROVED, PO_ISSUED, DOC_SUBMITTED, VERIFIED, CLOSED)."""
+    PUBLIC_STATUSES = [
+        PRStatus.APPROVED, PRStatus.PO_ISSUED,
+        PRStatus.DOC_SUBMITTED, PRStatus.VERIFIED, PRStatus.CLOSED,
+    ]
+
+    base = select(PurchaseRequisition).where(
+        PurchaseRequisition.status.in_(PUBLIC_STATUSES)
+    )
+
+    count_q = select(func.count()).select_from(base.subquery())
+    total_items = (await db.execute(count_q)).scalar() or 0
+    total_pages = max(1, math.ceil(total_items / per_page))
+
+    offset = (page - 1) * per_page
+    rows_q = (
+        base.options(selectinload(PurchaseRequisition.line_items))
+        .order_by(PurchaseRequisition.created_at.desc())
+        .offset(offset).limit(per_page)
+    )
+    result = await db.execute(rows_q)
+    prs = result.scalars().all()
+
+    return PaginatedResponse(
+        success=True,
+        data=[PROut.model_validate(pr).model_dump(mode="json") for pr in prs],
+        message="OK",
+        pagination=PaginationMeta(
+            page=page, per_page=per_page,
+            total_items=total_items, total_pages=total_pages,
+        ),
+    )
+
+
+# ── GET /stats ─────────────────────────────────────────────────────
+# Degraded mode: jika Auth Service down, return stats global (tanpa filter user).
+@router.get("/stats")
+async def get_requisition_stats(
+    db: AsyncSession = Depends(get_db),
+    user: dict | None = Depends(optional_verify_token),
+):
+    """
+    Statistik PR per status dan total amount.
+    Jika auth tersedia → filter per user. Jika down (degraded) → stats global.
+    """
+    q = select(
+        PurchaseRequisition.status,
+        func.count(PurchaseRequisition.id).label("count"),
+        func.sum(PurchaseRequisition.total_amount).label("total"),
+    )
+    if user is not None:
+        q = q.where(PurchaseRequisition.requester_id == user["user_id"])
+    q = q.group_by(PurchaseRequisition.status)
+
+    result = await db.execute(q)
+    stats = {
+        row.status: {"count": row.count, "total_amount": float(row.total or 0)}
+        for row in result.all()
+    }
+
+    return APIResponse(
+        success=True,
+        data={"by_status": stats, "degraded": user is None},
+        message="OK",
+    )
 
 
 # ── GET /{id} ─────────────────────────────────────────────────────
