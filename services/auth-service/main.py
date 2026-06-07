@@ -14,6 +14,7 @@ tidak punya akses ke auth_db, jadi ia memanggil endpoint ini via HTTP
 untuk memastikan token user valid.
 """
 
+import logging
 import os
 from datetime import datetime, timezone
 
@@ -22,6 +23,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from logging_config import setup_logging
+from logging_middleware import RequestLoggingMiddleware
+from metrics import metrics
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 from database import engine, get_db, Base
 from models import User, TokenBlacklist, UserRole
@@ -67,6 +75,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RequestLoggingMiddleware)
 
 # Bearer token scheme
 _bearer = HTTPBearer()
@@ -350,3 +360,13 @@ async def verify_token(
         full_name=user.full_name,
         role=role_value,
     )
+
+
+# ── GET /metrics ──────────────────────────────────────────────────
+@app.get("/metrics")
+def get_metrics():
+    """Return application metrics."""
+    return {
+        "service": "auth-service",
+        **metrics.get_metrics(),
+    }

@@ -9,6 +9,7 @@ Tanggung jawab:
 TIDAK menangani auth — verifikasi token dilakukan via HTTP call ke Auth Service.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -18,6 +19,13 @@ from fastapi.staticfiles import StaticFiles
 
 import httpx
 from sqlalchemy import text
+
+from logging_config import setup_logging
+from logging_middleware import RequestLoggingMiddleware
+from metrics import metrics
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 from database import engine, Base
 from auth_client import auth_circuit, AUTH_SERVICE_URL, TIMEOUT_SECONDS
@@ -46,6 +54,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+
+app.add_middleware(RequestLoggingMiddleware)
 
 # ── Routers ───────────────────────────────────────────────────────
 app.include_router(requisitions.router)
@@ -114,4 +124,14 @@ async def health_check():
         "service": "procurement-service",
         "version": "2.0.0",
         "checks": checks,
+    }
+
+
+# ── GET /metrics ──────────────────────────────────────────────────
+@app.get("/metrics")
+def get_metrics():
+    """Return application metrics."""
+    return {
+        "service": "procurement-service",
+        **metrics.get_metrics(),
     }

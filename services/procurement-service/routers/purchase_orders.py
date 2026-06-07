@@ -5,7 +5,7 @@ Purchase Order router — issue PO & list PO.
 import math
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,8 +18,8 @@ from schemas import APIResponse, PaginatedResponse, PaginationMeta, POOut
 router = APIRouter(prefix="/api/v1/purchase-orders", tags=["purchase-orders"])
 
 
-async def _require_admin(authorization: str = Header(...)) -> dict:
-    user = await verify_token_with_auth_service(authorization)
+async def _require_admin(request: Request, authorization: str = Header(...)) -> dict:
+    user = await verify_token_with_auth_service(request, authorization)
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Akses ditolak. Hanya admin.")
     return user
