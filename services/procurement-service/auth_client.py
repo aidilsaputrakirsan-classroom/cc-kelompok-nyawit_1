@@ -1,81 +1,119 @@
 """
 HTTP Client untuk berkomunikasi dengan Auth Service.
 
-╔══════════════════════════════════════════════════════════════════╗
-║  INI ADALAH INTI DARI MICROSERVICES!                            ║
-║                                                                  ║
-║  Di monolith: token di-decode langsung, query ke tabel users     ║
-║  Di microservices: Procurement Service TIDAK punya akses ke      ║
-║  auth_db. Ia harus BERTANYA ke Auth Service via HTTP.            ║
-╚══════════════════════════════════════════════════════════════════╝
-
-Alur:
-1. User kirim request ke Procurement Service dengan header "Authorization: Bearer xxx"
-2. Procurement Service ambil header tersebut
-3. Procurement Service panggil GET http://auth-service:8001/verify dengan header yang sama
-4. Auth Service cek token → return {user_id, email, full_name, role}
-5. Procurement Service lanjutkan proses dengan data user tersebut
-
-Di Docker Compose, "auth-service" adalah hostname yang resolve ke container Auth Service.
+Procurement Service memanggil GET /verify di Auth Service via HTTP.
+Dilengkapi retry (exponential backoff) dan circuit breaker.
 """
 
+import asyncio
+import logging
 import os
 
 import httpx
 from fastapi import HTTPException, Header
 
+from circuit_breaker import CircuitBreaker
+
+logger = logging.getLogger(__name__)
+
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8001")
+
+# Retry config
+MAX_RETRIES = 3
+BASE_DELAY = 0.5
+TIMEOUT_SECONDS = 5.0
+RETRYABLE_STATUS_CODES = {500, 502, 503, 504}
+
+# Circuit breaker: 5 failure berturut-turut → OPEN, cooldown 30 detik
+auth_circuit = CircuitBreaker(
+    name="auth-service",
+    failure_threshold=5,
+    cooldown_seconds=30,
+)
+
+
+async def _call_auth_service(authorization: str) -> dict:
+    """Panggil Auth Service dengan circuit breaker + retry + exponential backoff."""
+    if not auth_circuit.can_execute():
+        raise HTTPException(
+            status_code=503,
+            detail="Auth Service circuit breaker OPEN. Try again later.",
+        )
+
+    last_exception = None
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{AUTH_SERVICE_URL}/verify",
+                    headers={"Authorization": authorization},
+                    timeout=TIMEOUT_SECONDS,
+                )
+
+            if response.status_code == 200:
+                auth_circuit.record_success()
+                logger.info(f"Auth verified (attempt {attempt})")
+                return response.json()
+
+            # Non-retryable — token/request salah, tapi service responsif
+            if response.status_code == 401:
+                auth_circuit.record_success()
+                detail = response.json().get("detail", "Token tidak valid")
+                raise HTTPException(status_code=401, detail=detail)
+            if response.status_code == 400:
+                auth_circuit.record_success()
+                raise HTTPException(status_code=400, detail="Bad auth request")
+
+            # Retryable server errors (5xx)
+            if response.status_code in RETRYABLE_STATUS_CODES:
+                logger.warning(
+                    f"Auth service returned {response.status_code} "
+                    f"(attempt {attempt}/{MAX_RETRIES})"
+                )
+                last_exception = HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Auth service error: {response.status_code}",
+                )
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Unexpected auth response: {response.status_code}",
+                )
+
+        except httpx.ConnectError as e:
+            logger.warning(
+                f"Cannot connect to Auth Service (attempt {attempt}/{MAX_RETRIES}): {e}"
+            )
+            last_exception = e
+
+        except httpx.TimeoutException as e:
+            logger.warning(
+                f"Auth Service timeout (attempt {attempt}/{MAX_RETRIES}): {e}"
+            )
+            last_exception = e
+
+        # Exponential backoff: 0.5s, 1s, 2s
+        if attempt < MAX_RETRIES:
+            delay = BASE_DELAY * (2 ** (attempt - 1))
+            logger.info(f"Retrying in {delay}s...")
+            await asyncio.sleep(delay)
+
+    # Semua retry gagal
+    auth_circuit.record_failure()
+    logger.error(f"Auth Service unreachable after {MAX_RETRIES} attempts")
+    raise HTTPException(
+        status_code=503,
+        detail="Auth Service unavailable. Please try again later.",
+    )
 
 
 async def verify_token_with_auth_service(authorization: str = Header(...)) -> dict:
-    """
-    FastAPI Dependency: Verifikasi token dengan memanggil Auth Service.
+    """FastAPI Dependency: verifikasi token via Auth Service."""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
 
-    Digunakan sebagai Depends() di setiap endpoint yang butuh autentikasi.
-    Menggantikan fungsi get_current_user() di monolith.
-
-    Returns:
-        dict: {"user_id": int, "email": str, "full_name": str, "role": str}
-
-    Raises:
-        HTTPException 401: Token tidak valid
-        HTTPException 503: Auth Service tidak bisa dihubungi
-        HTTPException 504: Auth Service timeout
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{AUTH_SERVICE_URL}/verify",
-                headers={"Authorization": authorization},
-                timeout=5.0,  # timeout 5 detik
-            )
-
-        if response.status_code == 200:
-            return response.json()  # {user_id, email, full_name, role}
-
-        elif response.status_code == 401:
-            # Auth Service bilang token tidak valid
-            detail = response.json().get("detail", "Token tidak valid")
-            raise HTTPException(status_code=401, detail=detail)
-
-        else:
-            raise HTTPException(
-                status_code=503,
-                detail="Auth Service mengembalikan error yang tidak diharapkan",
-            )
-
-    except httpx.ConnectError:
-        # Auth Service tidak bisa dihubungi (container mati?)
-        raise HTTPException(
-            status_code=503,
-            detail="Tidak bisa terhubung ke Auth Service. Apakah service sedang berjalan?",
-        )
-    except httpx.TimeoutException:
-        # Auth Service terlalu lama merespons
-        raise HTTPException(
-            status_code=504,
-            detail="Auth Service timeout — coba lagi nanti",
-        )
+    return await _call_auth_service(authorization)
 
 
 async def require_role_via_auth(roles: list[str], authorization: str = Header(...)) -> dict:
