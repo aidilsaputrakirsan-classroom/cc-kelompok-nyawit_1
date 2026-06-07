@@ -130,8 +130,9 @@ async def health_check():
 # ── GET /metrics ──────────────────────────────────────────────────
 @app.get("/metrics")
 def get_metrics():
-    """Return application metrics."""
+    """Return application metrics termasuk recent error rate untuk alerting."""
     return {
         "service": "procurement-service",
         **metrics.get_metrics(),
+        "recent_error_rate": metrics.get_recent_error_rate(window_seconds=60),
     }

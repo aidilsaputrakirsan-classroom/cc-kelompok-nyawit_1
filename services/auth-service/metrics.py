@@ -21,6 +21,10 @@ class MetricsCollector:
         self.latencies = []
         self.max_latency_samples = 1000
 
+        # Sliding window: list of (timestamp, is_error) untuk hitung error rate terkini
+        self.recent_requests: list[tuple[float, bool]] = []
+        self.recent_window_seconds = 120  # simpan data 2 menit (cleanup > window cek)
+
         self.endpoint_stats = defaultdict(lambda: {
             "count": 0,
             "errors": 0,
@@ -33,8 +37,13 @@ class MetricsCollector:
             self.request_count += 1
             self.status_counts[status_code] += 1
 
-            if status_code >= 400:
+            is_error = status_code >= 400
+            if is_error:
                 self.error_count += 1
+
+            # Catat ke sliding window untuk error rate terkini
+            now = time.time()
+            self.recent_requests.append((now, is_error))
 
             self.latencies.append(duration_ms)
             if len(self.latencies) > self.max_latency_samples:
@@ -43,7 +52,7 @@ class MetricsCollector:
             key = f"{method} {path}"
             self.endpoint_stats[key]["count"] += 1
             self.endpoint_stats[key]["total_latency_ms"] += duration_ms
-            if status_code >= 400:
+            if is_error:
                 self.endpoint_stats[key]["errors"] += 1
 
     def get_metrics(self) -> dict:
@@ -88,6 +97,34 @@ class MetricsCollector:
                 "endpoints": endpoints,
             }
 
+    def get_recent_error_rate(self, window_seconds: int = 60) -> dict:
+        """
+        Hitung error rate dalam window detik terakhir (sliding window).
+        Return dict dengan: total, errors, error_rate_percent.
+        """
+        now = time.time()
+        cutoff = now - window_seconds
+        with self._lock:
+            recent = [(ts, err) for ts, err in self.recent_requests if ts >= cutoff]
+            total = len(recent)
+            errors = sum(1 for _, err in recent if err)
+            rate = round(errors / total * 100, 2) if total > 0 else 0.0
+        return {
+            "window_seconds": window_seconds,
+            "total_requests": total,
+            "total_errors": errors,
+            "error_rate_percent": rate,
+        }
+
+    def cleanup_recent(self):
+        """Hapus entry sliding window yang sudah di luar 2x window cek."""
+        now = time.time()
+        cutoff = now - self.recent_window_seconds
+        with self._lock:
+            self.recent_requests = [
+                (ts, err) for ts, err in self.recent_requests if ts >= cutoff
+            ]
+
     def reset(self):
         """Reset semua metrics."""
         with self._lock:
@@ -96,6 +133,7 @@ class MetricsCollector:
             self.status_counts.clear()
             self.latencies.clear()
             self.endpoint_stats.clear()
+            self.recent_requests.clear()
 
 
 # Singleton instance

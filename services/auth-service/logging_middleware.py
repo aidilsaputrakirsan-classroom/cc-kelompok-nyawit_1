@@ -1,6 +1,7 @@
 """
 Request Logging Middleware.
 Log setiap HTTP request dengan timing, status, correlation ID, dan metrics.
+Juga memulai ErrorAlertChecker background thread.
 """
 import time
 import uuid
@@ -9,12 +10,18 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from metrics import metrics
+from alert_checker import alert_checker
 
 logger = logging.getLogger(__name__)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware yang log setiap request/response dan record metrics."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        # Start error alert checker (idempotent, aman dipanggil berulang)
+        alert_checker.start()
 
     async def dispatch(self, request: Request, call_next):
         correlation_id = request.headers.get(
