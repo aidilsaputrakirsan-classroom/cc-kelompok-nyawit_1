@@ -16,6 +16,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
 from app.schemas.user import UserCreate
+from app.schemas.common import APIResponse
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 # ── POST /register ────────────────────────────────────────────────
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=APIResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register user baru (admin only)",
 )
@@ -54,13 +55,18 @@ async def register(
     await db.commit()
     await db.refresh(user)
 
-    return user
+    user_response = UserResponse.model_validate(user)
+    return APIResponse(
+        success=True,
+        data=user_response.model_dump(),
+        message="User berhasil dibuat"
+    )
 
 
 # ── POST /login ───────────────────────────────────────────────────
 @router.post(
     "/login",
-    response_model=TokenResponse,
+    response_model=APIResponse,
     summary="Login dan dapatkan access token",
 )
 async def login(
@@ -84,15 +90,26 @@ async def login(
     # Extract role value safely (handles both Enum and string)
     role_value = user.role.value if hasattr(user.role, 'value') else str(user.role)
     token = create_access_token(subject=user.id, role=role_value)
-    return TokenResponse(access_token=token)
+    
+    token_response = TokenResponse(access_token=token)
+    return APIResponse(
+        success=True,
+        data=token_response.model_dump(),
+        message="Login berhasil"
+    )
 
 
 # ── GET /me ───────────────────────────────────────────────────────
 @router.get(
     "/me",
-    response_model=UserResponse,
+    response_model=APIResponse,
     summary="Profil user yang sedang login",
 )
 async def me(current_user: User = Depends(get_current_user)):
     """Mengembalikan data user berdasarkan token yang dikirim."""
-    return current_user
+    user_response = UserResponse.model_validate(current_user)
+    return APIResponse(
+        success=True,
+        data=user_response.model_dump(),
+        message="OK"
+    )

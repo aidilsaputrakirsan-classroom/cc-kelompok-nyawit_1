@@ -167,6 +167,7 @@ Menjamin keamanan serta akuntabilitas sistem melalui pengaturan hak akses dan pe
 |------|------|--------|
 | Muchlis Wahyu Saputra | 10231054 | Lead Backend |
 | Ranaya Chintya Mahitsa | 10231078 | Lead Frontend |
+| Andi Adam Firdaus | 10211014 | Lead DevOps  |
 | Ahmad Baihaqi | 10221063 | Lead DevOps  |
 | Az-Zahra Atikah Nurhaliza | 10231022 | Lead QA & Docs |
 
@@ -179,7 +180,8 @@ Menjamin keamanan serta akuntabilitas sistem melalui pengaturan hak akses dan pe
 | FastAPI | Backend REST API |
 | React (Vite) | Frontend SPA |
 | PostgreSQL | Database |
-| Docker | Containerization |
+| Docker | PostgreSQL (atau database lain yang kompatibel)
+Containerization |
 | GitHub Actions | CI/CD |
 | Railway / Render | Cloud Deployment |
 
@@ -282,3 +284,12 @@ sicure/
         ├── App.tsx
         └── ...
 ```
+
+## 📋 Hasil Pengujian 
+
+- [Modul 2: dokumentasi hasil testing semua endpoint via Swagger](docs/modul2-api-test-result.md)
+- [Modul 3: dokumentasi UI testing](docs/modul3-ui-test-results.md)
+- [Modul 4: dokumentasi Auth testing](docs/modul4-auth.md)
+- [Modul 5: dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
+- [Modul 11: deployment guide Railway](docs/deployment-guide.md)
+- [Modul 11: production smoke test](docs/production-test.md)

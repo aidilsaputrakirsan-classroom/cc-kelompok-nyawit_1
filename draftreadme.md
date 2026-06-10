@@ -1,0 +1,1149 @@
+# ☁️ Cloud App - [SICURE Sistem Information Procurement]
+
+SICURE (Sistem Information Procurement) merupakan aplikasi berbasis cloud yang dirancang untuk membantu organisasi dalam mengelola arus keuangan serta proses pengadaan barang secara digital, terstruktur, dan transparan. Sistem ini memungkinkan pencatatan arus kas masuk dan kas keluar secara real-time, sekaligus mendukung proses pengajuan dan persetujuan pengadaan (procurement) dalam satu platform terintegrasi.
+
+Aplikasi ini ditujukan untuk organisasi seperti himpunan mahasiswa, UKM, komunitas, atau unit kegiatan lainnya yang membutuhkan sistem pencatatan keuangan dan pengadaan yang lebih tertib. Dengan digitalisasi melalui SICURE, proses administrasi menjadi lebih efisien, risiko kesalahan pencatatan dapat diminimalkan, serta transparansi keuangan dapat ditingkatkan.
+
+Melalui sistem berbasis cloud, data dapat diakses oleh pihak yang berwenang kapan saja dan di mana saja. Selain itu, SICURE mendukung mekanisme monitoring dan pelaporan yang membantu organisasi dalam mengambil keputusan yang lebih tepat terkait pengelolaan dana dan pengadaan barang.
+
+---
+
+## Fitur Sistem
+
+Berikut penjelasan detail dan terstruktur mengenai fitur-fitur utama dalam aplikasi SICURE yang mendukung pemantauan arus kas serta optimasi proses pengadaan (procurement).
+
+## 1. Dashboard Keuangan (Financial Dashboard)
+
+### Fungsi dan Manfaat
+Menyediakan gambaran kondisi keuangan organisasi secara real-time sehingga manajemen dapat memantau arus kas, posisi saldo, serta kesehatan keuangan tanpa harus membuka laporan detail.
+
+### Detail Fitur
+- Grafik arus kas masuk dan keluar (harian, bulanan, tahunan)
+- Total saldo kas saat ini
+- Total piutang dan utang
+- Pengeluaran terbesar per kategori
+- Perbandingan realisasi dengan anggaran
+- Indikator kesehatan keuangan (cash ratio, burn rate)
+
+---
+
+## 2. Manajemen Arus Kas (Cash Flow Management)
+
+### Fungsi dan Manfaat
+Mencatat seluruh transaksi keuangan secara terpusat untuk menghindari kesalahan pencatatan, kehilangan data, serta meningkatkan transparansi keuangan organisasi.
+
+### Detail Fitur
+- Input pemasukan (donasi, penjualan, iuran, dll.)
+- Input pengeluaran (operasional, pengadaan, dll.)
+- Klasifikasi transaksi berdasarkan kategori
+- Upload bukti transaksi
+- Edit dan histori perubahan transaksi
+- Rekonsiliasi dengan mutasi bank
+- Penandaan transaksi (verified/unverified)
+
+---
+
+## 3. Pengelolaan Faktur (Invoice Management)
+
+### Fungsi dan Manfaat
+Mengatur faktur masuk dan keluar agar pembayaran dapat dilakukan tepat waktu serta mencegah keterlambatan dan denda.
+
+### Detail Fitur
+- Input data faktur (nomor, vendor, nominal, tanggal)
+- Status faktur (draft, approved, paid, overdue)
+- Reminder sebelum jatuh tempo
+- Tracking pembayaran parsial
+- Integrasi dengan sistem kas
+- Riwayat pembayaran
+
+---
+
+## 4. Modul Pengadaan (Procurement Management)
+
+### Fungsi dan Manfaat
+Mengelola proses pembelian barang atau jasa secara sistematis dan transparan untuk mencegah pembelian tanpa persetujuan resmi.
+
+### Detail Fitur
+- Form pengajuan pengadaan (nama barang, estimasi harga, vendor, alasan kebutuhan)
+- Workflow approval bertingkat
+- Status tracking (submitted, approved, rejected, completed)
+- Upload dokumen pendukung
+- Perbandingan penawaran vendor
+- Konversi menjadi Purchase Order (PO)
+
+---
+
+## 5. Manajemen Vendor
+
+### Fungsi dan Manfaat
+Menyimpan dan mengevaluasi data vendor untuk membantu organisasi memilih vendor terbaik dan meningkatkan efisiensi biaya.
+
+### Detail Fitur
+- Database vendor
+- Riwayat transaksi per vendor
+- Nilai kontrak dan histori pembayaran
+- Evaluasi performa vendor
+- Blacklist vendor (opsional)
+
+---
+
+## 6. Manajemen Kontrak
+
+### Fungsi dan Manfaat
+Mengontrol masa berlaku dan nilai kontrak agar tidak terjadi kontrak berakhir tanpa evaluasi atau perpanjangan.
+
+### Detail Fitur
+- Penyimpanan dokumen kontrak digital
+- Informasi nilai dan periode kontrak
+- Notifikasi sebelum kontrak berakhir
+- Monitoring sisa nilai kontrak
+- Riwayat perpanjangan
+
+---
+
+## 7. Budgeting dan Budget Control
+
+### Fungsi dan Manfaat
+Mengontrol penggunaan anggaran agar tidak melebihi batas yang ditetapkan serta menjaga stabilitas keuangan organisasi.
+
+### Detail Fitur
+- Input anggaran tahunan/bulanan
+- Anggaran per divisi atau proyek
+- Monitoring realisasi vs anggaran
+- Alert jika mendekati batas
+- Blokir otomatis (opsional)
+- Forecast pengeluaran
+
+---
+
+## 8. Reporting dan Analisis
+
+### Fungsi dan Manfaat
+Menyediakan laporan komprehensif untuk mendukung audit serta pengambilan keputusan yang lebih akurat.
+
+### Detail Fitur
+- Laporan arus kas
+- Laporan laba rugi
+- Neraca
+- Laporan pengadaan
+- Grafik tren pembelian
+- Export ke PDF/Excel
+- Filter berdasarkan tanggal/divisi
+
+---
+
+## 9. Notifikasi dan Reminder System
+
+### Fungsi dan Manfaat
+Memberikan pengingat otomatis untuk mengurangi kelalaian dan meningkatkan efisiensi kerja.
+
+### Detail Fitur
+- Reminder jatuh tempo faktur
+- Notifikasi approval pengadaan
+- Alert saldo minimum
+- Reminder kontrak hampir habis
+- Notifikasi email dan dalam aplikasi
+
+---
+
+## 10. Manajemen Akses dan Keamanan
+
+### Fungsi dan Manfaat
+Menjamin keamanan serta akuntabilitas sistem melalui pengaturan hak akses dan perlindungan data.
+
+### Detail Fitur
+- Role-based access control
+- Audit log aktivitas pengguna
+- Enkripsi data sensitif
+- Backup otomatis
+- Two-factor authentication (opsional)
+
+---
+
+
+## 👥 Tim
+
+| Nama | NIM | Peran |
+|------|------|--------|
+| Muchlis Wahyu Saputra | 10231054 | Lead Backend |
+| Ranaya Chintya Mahitsa | 10231078 | Lead Frontend |
+| Andi Adam Firdaus | 10211014 | Lead DevOps  |
+| Ahmad Baihaqi | 10221063 | Lead DevOps  |
+| Az-Zahra Atikah Nurhaliza | 10231022 | Lead QA & Docs |
+
+---
+
+## 🛠️ Tech Stack
+
+| Teknologi | Fungsi |
+|------------|--------|
+| FastAPI | Backend REST API |
+| React (Vite) | Frontend SPA |
+| PostgreSQL | Database |
+| Docker | PostgreSQL (atau database lain yang kompatibel)
+Containerization |
+| GitHub Actions | CI/CD |
+| Railway / Render | Cloud Deployment |
+
+---
+
+## 🏗️ Architecture
+
+[React Frontend] <--HTTP--> [FastAPI Backend] <--SQL--> [PostgreSQL]
+
+##### _(Diagram ini akan berkembang setiap minggu)_
+---
+
+## 🚀 Getting Started
+
+## Prasyarat
+
+- [mise](https://mise.jdx.dev/) (mengelola versi Python & Node.js)
+- PostgreSQL (atau database lain yang kompatibel)
+
+## Quick Start
+
+```bash
+# 1. Masuk ke direktori project
+cd sicure
+
+# 2. Aktifkan toolchain via mise (otomatis install Python 3.11 & Node 20)
+mise install
+mise trust
+
+# 3. Setup backend
+cd backend
+python -m venv venv
+source venv/bin/activate        # Linux/macOS
+# venv\Scripts\activate          # Windows
+pip install -r requirements.txt
+cp .env.example .env            # edit sesuai konfigurasi lokal
+cd ..
+
+# 4. Setup frontend
+cd frontend
+npm install
+cd ..
+```
+
+## Menjalankan Project
+
+### Backend
+
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API docs tersedia di: `http://localhost:8000/docs`
+
+### Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+Aplikasi tersedia di: `http://localhost:5173`
+
+## Menjalankan via mise (tasks)
+
+```bash
+# Dari root project
+mise run backend   # jalankan backend
+mise run frontend  # jalankan frontend
+```
+
+## Struktur Project
+
+```
+sicure/
+├── mise.toml
+├── .env.example
+├── README.md
+├── backend/
+│   ├── .env.example
+│   ├── requirements.txt
+│   ├── alembic.ini
+│   ├── venv/
+│   └── app/
+│       ├── main.py
+│       ├── core/        # config, security, dependencies
+│       ├── db/          # database session & base
+│       ├── models/      # SQLAlchemy models
+│       ├── schemas/     # Pydantic schemas
+│       ├── routers/     # API route handlers
+│       └── utils/       # helper functions
+└── frontend/
+    ├── package.json
+    ├── tsconfig.json
+    ├── vite.config.ts
+    └── src/
+        ├── main.tsx
+        ├── App.tsx
+        └── ...
+```
+
+## 📋 Hasil Pengujian 
+
+- [Modul 2: dokumentasi hasil testing semua endpoint via Swagger](docs/modul2-api-test-result.md)
+- [Modul 3: dokumentasi UI testing](docs/modul3-ui-test-results.md)
+- [Modul 4: dokumentasi Auth testing](docs/modul4-auth.md)
+- [Modul 5: dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
+
+
+
+# Terbaru Readme
+
+# ☁️ SiCure — Sistem Information Procurement
+
+SiCure (Sistem Information Procurement) merupakan aplikasi berbasis cloud yang dirancang untuk membantu organisasi dalam mengelola proses pengadaan barang/jasa secara digital, terstruktur, dan transparan.
+
+Aplikasi ini mendukung pencatatan serta monitoring proses procurement mulai dari pengajuan hingga verifikasi akhir dalam satu platform terintegrasi. Dengan sistem ini, organisasi seperti himpunan mahasiswa, UKM, maupun komunitas dapat meningkatkan efisiensi administrasi, mengurangi kesalahan pencatatan, serta memastikan transparansi dalam pengelolaan pengadaan.
+
+Melalui pendekatan berbasis cloud, sistem dapat diakses kapan saja dan di mana saja oleh pihak yang berwenang, sehingga mendukung pengambilan keputusan yang lebih cepat dan akurat.
+
+**Backend:** FastAPI + SQLAlchemy (async) + PostgreSQL  
+**Frontend:** React 19 + TypeScript + Vite
+
+---
+
+## 👥 Tim
+
+| Nama | NIM | Peran |
+|------|------|--------|
+| Muchlis Wahyu Saputra | 10231054 | Lead Backend |
+| Ranaya Chintya Mahitsa | 10231078 | Lead Frontend |
+| Andi Adam Firdaus | 10211014 | Lead DevOps |
+| Ahmad Baihaqi | 10221063 | Lead DevOps |
+| Az-Zahra Atikah Nurhaliza | 10231022 | Lead QA & Docs |
+
+---
+
+## 📌 Fitur Utama Sistem
+
+- **Procurement Management**: Pengajuan hingga persetujuan pengadaan
+- **Purchase Order (PO)**: Penerbitan dokumen resmi pembelian
+- **GRN (Goods Receipt Note)**: Upload bukti penerimaan barang
+- **Verification System**: Validasi dokumen oleh admin
+- **Role-Based Access Control**: Hak akses berdasarkan role (Admin & Requester)
+- **Audit & Tracking**: Monitoring status setiap proses pengadaan
+
+---
+
+## Daftar Isi
+
+1. [Prasyarat](#prasyarat)
+2. [Setup Backend (venv, requirements, alembic)](#setup-backend)
+3. [Setup Frontend](#setup-frontend)
+4. [Menjalankan Backend & Frontend Bersamaan](#menjalankan-backend--frontend-bersamaan)
+5. [Credential Demo Login](#credential-demo-login)
+6. [Alur Procurement](#alur-procurement)
+7. [Struktur Project](#struktur-project)
+8. [API Endpoints](#api-endpoints)
+9. [Scripts](#scripts)
+10. [Catatan Keamanan](#catatan-keamanan)
+11. [Next Steps](#next-steps)
+
+---
+
+## Prasyarat
+
+| Tool       | Versi   | Keterangan                          |
+|------------|---------|-------------------------------------|
+| Python     | 3.11+   | Backend runtime                     |
+| Node.js    | 20+     | Frontend tooling                    |
+| PostgreSQL | 16+     | Database utama                      |
+| Git        | 2.x     | Version control                     |
+
+Install sesuai OS masing-masing:
+
+- **Python:** https://www.python.org/downloads/ atau via package manager (`apt`, `brew`, `dnf`, dll.)
+- **Node.js:** https://nodejs.org/ atau via [nvm](https://github.com/nvm-sh/nvm)
+- **PostgreSQL:** https://www.postgresql.org/download/
+
+```bash
+# Verifikasi instalasi
+python3 --version   # Python 3.11.x atau lebih baru
+node --version      # v20.x.x atau lebih baru
+psql --version      # psql (PostgreSQL) 16.x atau lebih baru
+```
+
+---
+
+## Setup Backend
+
+```bash
+# 1. Masuk ke direktori backend
+cd backend
+
+# 2. Buat virtual environment
+python3 -m venv venv
+
+# 3. Aktifkan virtual environment
+source venv/bin/activate         # Linux/macOS
+# venv\Scripts\activate          # Windows
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Salin dan edit konfigurasi environment
+cp .env.local .env
+# Edit .env sesuai konfigurasi database lokal Anda
+
+# 6. Buat database PostgreSQL
+createdb sicure_db
+# Atau via psql:
+# psql -c "CREATE DATABASE sicure_db;"
+
+# 7. Jalankan migrasi database (Alembic)
+alembic upgrade head
+
+# 8. Jalankan seeder (buat user demo)
+python -m app.seed
+
+# Kembali ke root project
+cd ..
+```
+
+### Alembic Commands
+
+```bash
+# Jalankan semua migrasi
+alembic upgrade head
+
+# Rollback 1 step
+alembic downgrade -1
+
+# Buat migrasi baru (autogenerate)
+alembic revision --autogenerate -m "deskripsi perubahan"
+
+# Lihat status migrasi
+alembic current
+alembic history
+```
+
+---
+
+## Setup Frontend
+
+```bash
+# 1. Masuk ke direktori frontend
+cd frontend
+
+# 2. Install dependencies
+npm install
+
+# 3. Salin dan edit konfigurasi environment
+cp .env.local .env
+# Default: VITE_API_BASE_URL=http://localhost:8000/api/v1
+
+# Kembali ke root project
+cd ..
+```
+
+---
+
+## Menjalankan Backend & Frontend Bersamaan
+
+**Terminal 1 — Backend:**
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+---
+
+## Credential Demo Login
+
+Setelah menjalankan `npm run db:seed` atau `python -m app.seed`, user berikut tersedia:
+
+| Email                    | Password         | Role        | Nama            |
+|--------------------------|------------------|-------------|-----------------|
+| `admin@sicure.com`       | `admin1234`      | Admin       | Procurement Admin |
+| `requester1@sicure.com`  | `requester1234`  | Requester   | Budi Santoso    |
+| `requester2@sicure.com`  | `requester1234`  | Requester   | Siti Rahayu     |
+
+> **Admin** dapat me-review PR, menerbitkan PO, dan memverifikasi GRN.  
+> **Requester** dapat membuat PR, meng-upload dokumen GRN, dan melihat status pengadaan.
+
+---
+
+## Alur Procurement
+
+SiCure mengimplementasikan alur pengadaan 5 tahap:
+
+```
+┌──────────┐    ┌──────────┐    ┌───────────┐    ┌──────────────┐    ┌──────────────┐
+│  1. PR    │───>│ 2. Appro-│───>│ 3. PO     │───>│ 4. GRN       │───>│ 5. Verifi-   │
+│  Creation │    │    val   │    │  Issuance  │    │  Submission   │    │    cation    │
+└──────────┘    └──────────┘    └───────────┘    └──────────────┘    └──────────────┘
+  Requester       Admin           Admin            Requester           Admin
+```
+
+### 1. Purchase Requisition (PR) — Pembuatan Permintaan
+
+- **Aktor:** Requester
+- **Aksi:** Requester membuat PR baru dengan judul, justifikasi, dan daftar line items (nama barang, jumlah, satuan, harga estimasi).
+- **Status:** `SUBMITTED`
+- **Sistem:** Otomatis menghitung subtotal per item dan total keseluruhan. Nomor PR di-generate otomatis (format: `PR-YYYYMMDD-HHMMSSff`).
+
+### 2. Approval — Persetujuan
+
+- **Aktor:** Procurement Admin
+- **Aksi:** Admin me-review PR yang masuk, kemudian menyetujui (Approve) atau menolak (Reject) dengan catatan.
+- **Status:** `SUBMITTED` → `APPROVED` atau `REJECTED`
+- **Validasi:** Hanya PR dengan status `SUBMITTED` yang bisa di-review.
+
+### 3. PO Issuance — Penerbitan Purchase Order
+
+- **Aktor:** Procurement Admin
+- **Aksi:** Setelah PR disetujui, admin menerbitkan Purchase Order (PO) dengan alokasi budget.
+- **Status:** `APPROVED` → `PO_ISSUED`
+- **Sistem:** Nomor PO di-generate otomatis (format: `PO-YYYYMMDD-HHMMSSff`). Satu PR hanya bisa memiliki satu PO.
+
+### 4. GRN Submission — Penyerahan Bukti Penerimaan Barang
+
+- **Aktor:** Requester
+- **Aksi:** Setelah barang diterima, requester meng-upload dokumen bukti:
+  - Commercial Invoice (faktur komersial)
+  - Foto barang yang diterima
+- **Status:** `PO_ISSUED` → `DOC_SUBMITTED`
+- **Validasi:** File harus berformat JPG, PNG, atau PDF. Maksimum 5MB per file.
+
+### 5. Verification — Verifikasi & Penutupan
+
+- **Aktor:** Procurement Admin
+- **Aksi:** Admin memverifikasi dokumen GRN yang di-submit, kemudian:
+  - **Verify:** Menandai dokumen sudah diverifikasi (`DOC_SUBMITTED` → `VERIFIED`)
+  - **Close:** Menutup proses pengadaan (`VERIFIED` → `CLOSED`)
+- **Catatan:** Admin dapat menambahkan catatan verifikasi.
+
+### Diagram Status Lengkap
+
+```
+DRAFT ──> SUBMITTED ──> APPROVED ──> PO_ISSUED ──> DOC_SUBMITTED ──> VERIFIED ──> CLOSED
+                   └──> REJECTED
+```
+
+---
+
+## Struktur Project
+
+```
+sicure/
+├── package.json                 # Root scripts (dev, build, db:migrate, db:seed, test)
+├── README.md
+│
+├── backend/
+│   ├── .env.local               # Contoh konfigurasi environment
+│   ├── .env.example             # Template environment
+│   ├── requirements.txt         # Python dependencies
+│   ├── alembic.ini              # Alembic configuration
+│   ├── uploads/                 # File upload storage
+│   ├── tests/                   # Pytest test suite
+│   │   └── test_health.py
+│   ├── alembic/
+│   │   ├── env.py               # Async migration runner
+│   │   └── versions/            # Migration files
+│   └── app/
+│       ├── main.py              # FastAPI app + middleware
+│       ├── seed.py              # Database seeder
+│       ├── core/
+│       │   ├── config.py        # Pydantic Settings (env vars)
+│       │   ├── security.py      # Password hashing + JWT
+│       │   └── deps.py          # Auth dependencies + role checker
+│       ├── db/
+│       │   ├── base.py          # SQLAlchemy DeclarativeBase
+│       │   └── session.py       # Async engine + session factory
+│       ├── models/
+│       │   ├── enums.py         # UserRole, PRStatus enums
+│       │   ├── user.py
+│       │   ├── purchase_requisition.py
+│       │   ├── pr_line_item.py
+│       │   ├── purchase_order.py
+│       │   └── grn_document.py
+│       ├── schemas/             # Pydantic request/response schemas
+│       └── routers/
+│           ├── auth.py          # Login, register, me
+│           ├── requisitions.py  # Requester PR endpoints
+│           ├── requisitions_admin.py  # Admin PR review
+│           ├── purchase_orders.py     # PO issuance & listing
+│           ├── grn.py           # GRN document upload
+│           └── grn_admin.py     # GRN verification
+│
+└── frontend/
+    ├── .env.local               # Contoh konfigurasi environment
+    ├── package.json
+    ├── vite.config.ts
+    ├── index.html
+    └── src/
+        ├── main.tsx             # Entry point + ErrorBoundary
+        ├── App.tsx              # Router + providers
+        ├── index.css            # All styles (no CSS framework)
+        ├── types/index.ts       # TypeScript interfaces
+        ├── services/
+        │   ├── api.ts           # Axios instance + interceptors
+        │   └── auth.ts          # Login helper
+        ├── contexts/
+        │   ├── AuthContext.tsx   # Auth state management
+        │   ├── ToastContext.tsx  # Toast notifications
+        │   └── ProcurementContext.tsx  # PR/PO data caching
+        ├── components/
+        │   ├── Layout.tsx       # Navbar + page wrapper
+        │   ├── ProtectedRoute.tsx  # Auth guard + role check
+        │   ├── StatusBadge.tsx  # Status pill component
+        │   └── ErrorBoundary.tsx  # Error fallback UI
+        └── pages/
+            ├── Login.tsx
+            ├── requester/
+            │   ├── Dashboard.tsx  # List own PRs
+            │   ├── PRNew.tsx      # Create new PR
+            │   └── PRDetail.tsx   # PR detail + GRN upload
+            └── admin/
+                ├── Dashboard.tsx  # All PRs + status filter
+                ├── PRDetail.tsx   # Review/Approve/Reject/Issue PO/Verify
+                └── PODetail.tsx   # PO detail view
+```
+
+---
+
+## ERD
+![ss](../docs/Images/ERD-CC.png)
+
+## API Endpoints
+
+Base URL: `http://localhost:8000/api/v1`
+
+| Method | Endpoint                              | Auth     | Deskripsi                        |
+|--------|---------------------------------------|----------|----------------------------------|
+| POST   | `/auth/register`                      | Admin    | Buat user baru                   |
+| POST   | `/auth/login`                         | Public   | Login, return JWT                |
+| GET    | `/auth/me`                            | Auth     | Profil user saat ini             |
+| POST   | `/requisitions/`                      | Auth     | Buat PR baru                     |
+| GET    | `/requisitions/`                      | Auth     | List PR milik sendiri            |
+| GET    | `/requisitions/{id}`                  | Auth     | Detail PR milik sendiri          |
+| GET    | `/requisitions/admin/`                | Admin    | List semua PR                    |
+| PUT    | `/requisitions/admin/{id}/review`     | Admin    | Approve/Reject PR                |
+| POST   | `/purchase-orders/{pr_id}/issue`      | Admin    | Terbitkan PO                     |
+| GET    | `/purchase-orders/{pr_id}/my-po`      | Auth     | Lihat PO untuk PR sendiri        |
+| GET    | `/purchase-orders/`                   | Admin    | List semua PO                    |
+| POST   | `/grn/{po_id}/submit-doc`             | Auth     | Upload dokumen GRN               |
+| GET    | `/grn/{grn_id}`                       | Auth     | Detail GRN                       |
+| PUT    | `/grn/admin/{grn_id}/verify`          | Admin    | Verifikasi/Close GRN             |
+| GET    | `/health`                             | Public   | Health check                     |
+
+Dokumentasi interaktif: `http://localhost:8000/docs` (Swagger UI)
+
+---
+
+## Scripts
+
+Dari root project (`sicure/`):
+
+| Script           | Perintah              | Deskripsi                                    |
+|------------------|-----------------------|----------------------------------------------|
+| `npm run dev`    | concurrently          | Jalankan backend + frontend bersamaan        |
+| `npm run dev:frontend` | vite             | Jalankan frontend saja                       |
+| `npm run dev:backend`  | uvicorn          | Jalankan backend saja                        |
+| `npm run build`  | tsc + vite build      | Build frontend untuk production              |
+| `npm run db:migrate` | alembic upgrade head | Jalankan migrasi database                 |
+| `npm run db:seed` | python -m app.seed   | Seed database dengan user demo               |
+| `npm run test`   | pytest                | Jalankan test suite backend                  |
+
+---
+
+## Catatan Keamanan
+
+1. **JWT Secret:** Ganti `JWT_SECRET` di `.env` dengan string random yang kuat sebelum deploy ke production. Generate dengan:
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(64))"
+   ```
+
+2. **CORS:** Di production, set `ALLOWED_ORIGINS` hanya ke domain frontend yang valid. Jangan gunakan wildcard `*`.
+
+3. **APP_ENV:** Set `APP_ENV=production` untuk mengaktifkan:
+   - Pembatasan ukuran request body (Content-Length enforcement)
+   - CORS header yang lebih ketat (hanya method & header yang diperlukan)
+
+4. **File Upload:**
+   - Hanya menerima file JPG, PNG, dan PDF
+   - Maksimum 5MB per file (konfigurasi via `MAX_UPLOAD_SIZE_MB`)
+   - Filename di-sanitize dan diberi UUID prefix untuk mencegah path traversal
+   - File disimpan di filesystem lokal (`./uploads/`)
+
+5. **Password:** Menggunakan bcrypt hashing. Password tidak pernah disimpan dalam plaintext.
+
+6. **Database:** Gunakan password yang kuat untuk PostgreSQL di production. Jangan gunakan user `postgres` tanpa password.
+
+---
+
+## 📋 Hasil Pengujian 
+
+- [Modul 2: dokumentasi hasil testing semua endpoint via Swagger](docs/modul2-api-test-result.md)
+- [Modul 3: dokumentasi UI testing](docs/modul3-ui-test-results.md)
+- [Modul 4: dokumentasi Auth testing](docs/modul4-auth.md)
+- [Modul 5: dokumentasi perbandingan ukuran image](docs/dosc/image-comparison.md)
+
+---
+
+## Next Steps
+
+Fitur-fitur yang direncanakan untuk pengembangan selanjutnya:
+
+### Email Notification
+- Notifikasi email otomatis saat PR di-approve/reject
+- Notifikasi ke admin saat ada PR baru masuk
+- Reminder untuk PR yang belum di-review
+
+### 3-Way Match Automation
+- Otomatis membandingkan PR, PO, dan GRN (invoice)
+- Deteksi ketidaksesuaian harga, jumlah, atau item
+- Dashboard match score untuk setiap transaksi
+
+### Audit Trail Export
+- Log semua aktivitas user (create, approve, reject, upload, verify)
+- Export audit trail ke CSV/PDF
+- Filter berdasarkan tanggal, user, atau tipe aksi
+
+### Fitur Tambahan
+- Dashboard analytics (total PR, PO, spending per periode)
+- Multi-level approval workflow
+- Vendor management module
+- Budget tracking & alerts
+- Document versioning untuk GRN
+- Role-based access control yang lebih granular
+- API rate limiting
+- File storage migration ke cloud (S3/GCS)
+
+---
+
+## Tech Stack
+
+| Layer     | Teknologi                                    |
+|-----------|----------------------------------------------|
+| Frontend  | React 19, TypeScript, Vite 8, Axios          |
+| Backend   | FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 |
+| Database  | PostgreSQL 16+ (via asyncpg)                 |
+| Auth      | JWT (python-jose) + bcrypt (passlib)         |
+| Migration | Alembic                                      |
+
+---
+
+## License
+
+Internal project — Universitas.
+
+
+# README MUCLIS
+# SiCure — Sistem Procurement
+
+Aplikasi procurement berbasis web untuk mengelola alur pengadaan barang/jasa secara profesional.  
+**Backend:** FastAPI + SQLAlchemy (async) + PostgreSQL  
+**Frontend:** React 19 + TypeScript + Vite
+
+---
+
+## Daftar Isi
+
+1. [Prasyarat](#prasyarat)
+2. [Setup Backend (venv, requirements, alembic)](#setup-backend)
+3. [Setup Frontend](#setup-frontend)
+4. [Menjalankan Backend & Frontend Bersamaan](#menjalankan-backend--frontend-bersamaan)
+5. [Credential Demo Login](#credential-demo-login)
+6. [Alur Procurement](#alur-procurement)
+7. [Struktur Project](#struktur-project)
+8. [API Endpoints](#api-endpoints)
+9. [Scripts](#scripts)
+10. [Catatan Keamanan](#catatan-keamanan)
+11. [Next Steps](#next-steps)
+
+---
+
+## Prasyarat
+
+| Tool       | Versi   | Keterangan                          |
+|------------|---------|-------------------------------------|
+| Python     | 3.11+   | Backend runtime                     |
+| Node.js    | 20+     | Frontend tooling                    |
+| PostgreSQL | 16+     | Database utama                      |
+| Git        | 2.x     | Version control                     |
+
+Install sesuai OS masing-masing:
+
+- **Python:** https://www.python.org/downloads/ atau via package manager (`apt`, `brew`, `dnf`, dll.)
+- **Node.js:** https://nodejs.org/ atau via [nvm](https://github.com/nvm-sh/nvm)
+- **PostgreSQL:** https://www.postgresql.org/download/
+
+```bash
+# Verifikasi instalasi
+python3 --version   # Python 3.11.x atau lebih baru
+node --version      # v20.x.x atau lebih baru
+psql --version      # psql (PostgreSQL) 16.x atau lebih baru
+```
+
+---
+
+## Setup Backend
+
+```bash
+# 1. Masuk ke direktori backend
+cd backend
+
+# 2. Buat virtual environment
+python3 -m venv venv
+
+# 3. Aktifkan virtual environment
+source venv/bin/activate         # Linux/macOS
+# venv\Scripts\activate          # Windows
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Salin dan edit konfigurasi environment
+cp .env.local .env
+# Edit .env sesuai konfigurasi database lokal Anda
+
+# 6. Buat database PostgreSQL
+createdb sicure_db
+# Atau via psql:
+# psql -c "CREATE DATABASE sicure_db;"
+
+# 7. Jalankan migrasi database (Alembic)
+alembic upgrade head
+
+# 8. Jalankan seeder (buat user demo)
+python -m app.seed
+
+# Kembali ke root project
+cd ..
+```
+
+### Alembic Commands
+
+```bash
+# Jalankan semua migrasi
+alembic upgrade head
+
+# Rollback 1 step
+alembic downgrade -1
+
+# Buat migrasi baru (autogenerate)
+alembic revision --autogenerate -m "deskripsi perubahan"
+
+# Lihat status migrasi
+alembic current
+alembic history
+```
+
+---
+
+## Setup Frontend
+
+```bash
+# 1. Masuk ke direktori frontend
+cd frontend
+
+# 2. Install dependencies
+npm install
+
+# 3. Salin dan edit konfigurasi environment
+cp .env.local .env
+# Default: VITE_API_BASE_URL=http://localhost:8000/api/v1
+
+# Kembali ke root project
+cd ..
+```
+
+---
+
+## Menjalankan Backend & Frontend Bersamaan
+
+**Terminal 1 — Backend:**
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+---
+
+## Credential Demo Login
+
+Setelah menjalankan `npm run db:seed` atau `python -m app.seed`, user berikut tersedia:
+
+| Email                    | Password         | Role        | Nama            |
+|--------------------------|------------------|-------------|-----------------|
+| `admin@sicure.com`       | `admin1234`      | Admin       | Procurement Admin |
+| `requester1@sicure.com`  | `requester1234`  | Requester   | Budi Santoso    |
+| `requester2@sicure.com`  | `requester1234`  | Requester   | Siti Rahayu     |
+
+> **Admin** dapat me-review PR, menerbitkan PO, dan memverifikasi GRN.  
+> **Requester** dapat membuat PR, meng-upload dokumen GRN, dan melihat status pengadaan.
+
+---
+
+## Alur Procurement
+
+SiCure mengimplementasikan alur pengadaan 5 tahap:
+
+```
+┌──────────┐    ┌──────────┐    ┌───────────┐    ┌──────────────┐    ┌──────────────┐
+│  1. PR    │───>│ 2. Appro-│───>│ 3. PO     │───>│ 4. GRN       │───>│ 5. Verifi-   │
+│  Creation │    │    val   │    │  Issuance  │    │  Submission   │    │    cation    │
+└──────────┘    └──────────┘    └───────────┘    └──────────────┘    └──────────────┘
+  Requester       Admin           Admin            Requester           Admin
+```
+
+### 1. Purchase Requisition (PR) — Pembuatan Permintaan
+
+- **Aktor:** Requester
+- **Aksi:** Requester membuat PR baru dengan judul, justifikasi, dan daftar line items (nama barang, jumlah, satuan, harga estimasi).
+- **Status:** `SUBMITTED`
+- **Sistem:** Otomatis menghitung subtotal per item dan total keseluruhan. Nomor PR di-generate otomatis (format: `PR-YYYYMMDD-HHMMSSff`).
+
+### 2. Approval — Persetujuan
+
+- **Aktor:** Procurement Admin
+- **Aksi:** Admin me-review PR yang masuk, kemudian menyetujui (Approve) atau menolak (Reject) dengan catatan.
+- **Status:** `SUBMITTED` → `APPROVED` atau `REJECTED`
+- **Validasi:** Hanya PR dengan status `SUBMITTED` yang bisa di-review.
+
+### 3. PO Issuance — Penerbitan Purchase Order
+
+- **Aktor:** Procurement Admin
+- **Aksi:** Setelah PR disetujui, admin menerbitkan Purchase Order (PO) dengan alokasi budget.
+- **Status:** `APPROVED` → `PO_ISSUED`
+- **Sistem:** Nomor PO di-generate otomatis (format: `PO-YYYYMMDD-HHMMSSff`). Satu PR hanya bisa memiliki satu PO.
+
+### 4. GRN Submission — Penyerahan Bukti Penerimaan Barang
+
+- **Aktor:** Requester
+- **Aksi:** Setelah barang diterima, requester meng-upload dokumen bukti:
+  - Commercial Invoice (faktur komersial)
+  - Foto barang yang diterima
+- **Status:** `PO_ISSUED` → `DOC_SUBMITTED`
+- **Validasi:** File harus berformat JPG, PNG, atau PDF. Maksimum 5MB per file.
+
+### 5. Verification — Verifikasi & Penutupan
+
+- **Aktor:** Procurement Admin
+- **Aksi:** Admin memverifikasi dokumen GRN yang di-submit, kemudian:
+  - **Verify:** Menandai dokumen sudah diverifikasi (`DOC_SUBMITTED` → `VERIFIED`)
+  - **Close:** Menutup proses pengadaan (`VERIFIED` → `CLOSED`)
+- **Catatan:** Admin dapat menambahkan catatan verifikasi.
+
+### Diagram Status Lengkap
+
+```
+DRAFT ──> SUBMITTED ──> APPROVED ──> PO_ISSUED ──> DOC_SUBMITTED ──> VERIFIED ──> CLOSED
+                   └──> REJECTED
+```
+
+---
+
+## Struktur Project
+
+```
+sicure/
+├── package.json                 # Root scripts (dev, build, db:migrate, db:seed, test)
+├── README.md
+│
+├── backend/
+│   ├── .env.local               # Contoh konfigurasi environment
+│   ├── .env.example             # Template environment
+│   ├── requirements.txt         # Python dependencies
+│   ├── alembic.ini              # Alembic configuration
+│   ├── uploads/                 # File upload storage
+│   ├── tests/                   # Pytest test suite
+│   │   └── test_health.py
+│   ├── alembic/
+│   │   ├── env.py               # Async migration runner
+│   │   └── versions/            # Migration files
+│   └── app/
+│       ├── main.py              # FastAPI app + middleware
+│       ├── seed.py              # Database seeder
+│       ├── core/
+│       │   ├── config.py        # Pydantic Settings (env vars)
+│       │   ├── security.py      # Password hashing + JWT
+│       │   └── deps.py          # Auth dependencies + role checker
+│       ├── db/
+│       │   ├── base.py          # SQLAlchemy DeclarativeBase
+│       │   └── session.py       # Async engine + session factory
+│       ├── models/
+│       │   ├── enums.py         # UserRole, PRStatus enums
+│       │   ├── user.py
+│       │   ├── purchase_requisition.py
+│       │   ├── pr_line_item.py
+│       │   ├── purchase_order.py
+│       │   └── grn_document.py
+│       ├── schemas/             # Pydantic request/response schemas
+│       └── routers/
+│           ├── auth.py          # Login, register, me
+│           ├── requisitions.py  # Requester PR endpoints
+│           ├── requisitions_admin.py  # Admin PR review
+│           ├── purchase_orders.py     # PO issuance & listing
+│           ├── grn.py           # GRN document upload
+│           └── grn_admin.py     # GRN verification
+│
+└── frontend/
+    ├── .env.local               # Contoh konfigurasi environment
+    ├── package.json
+    ├── vite.config.ts
+    ├── index.html
+    └── src/
+        ├── main.tsx             # Entry point + ErrorBoundary
+        ├── App.tsx              # Router + providers
+        ├── index.css            # All styles (no CSS framework)
+        ├── types/index.ts       # TypeScript interfaces
+        ├── services/
+        │   ├── api.ts           # Axios instance + interceptors
+        │   └── auth.ts          # Login helper
+        ├── contexts/
+        │   ├── AuthContext.tsx   # Auth state management
+        │   ├── ToastContext.tsx  # Toast notifications
+        │   └── ProcurementContext.tsx  # PR/PO data caching
+        ├── components/
+        │   ├── Layout.tsx       # Navbar + page wrapper
+        │   ├── ProtectedRoute.tsx  # Auth guard + role check
+        │   ├── StatusBadge.tsx  # Status pill component
+        │   └── ErrorBoundary.tsx  # Error fallback UI
+        └── pages/
+            ├── Login.tsx
+            ├── requester/
+            │   ├── Dashboard.tsx  # List own PRs
+            │   ├── PRNew.tsx      # Create new PR
+            │   └── PRDetail.tsx   # PR detail + GRN upload
+            └── admin/
+                ├── Dashboard.tsx  # All PRs + status filter
+                ├── PRDetail.tsx   # Review/Approve/Reject/Issue PO/Verify
+                └── PODetail.tsx   # PO detail view
+```
+
+---
+
+## API Endpoints
+
+Base URL: `http://localhost:8000/api/v1`
+
+| Method | Endpoint                              | Auth     | Deskripsi                        |
+|--------|---------------------------------------|----------|----------------------------------|
+| POST   | `/auth/register`                      | Admin    | Buat user baru                   |
+| POST   | `/auth/login`                         | Public   | Login, return JWT                |
+| GET    | `/auth/me`                            | Auth     | Profil user saat ini             |
+| POST   | `/requisitions/`                      | Auth     | Buat PR baru                     |
+| GET    | `/requisitions/`                      | Auth     | List PR milik sendiri            |
+| GET    | `/requisitions/{id}`                  | Auth     | Detail PR milik sendiri          |
+| GET    | `/requisitions/admin/`                | Admin    | List semua PR                    |
+| PUT    | `/requisitions/admin/{id}/review`     | Admin    | Approve/Reject PR                |
+| POST   | `/purchase-orders/{pr_id}/issue`      | Admin    | Terbitkan PO                     |
+| GET    | `/purchase-orders/{pr_id}/my-po`      | Auth     | Lihat PO untuk PR sendiri        |
+| GET    | `/purchase-orders/`                   | Admin    | List semua PO                    |
+| POST   | `/grn/{po_id}/submit-doc`             | Auth     | Upload dokumen GRN               |
+| GET    | `/grn/{grn_id}`                       | Auth     | Detail GRN                       |
+| PUT    | `/grn/admin/{grn_id}/verify`          | Admin    | Verifikasi/Close GRN             |
+| GET    | `/health`                             | Public   | Health check                     |
+
+Dokumentasi interaktif: `http://localhost:8000/docs` (Swagger UI)
+
+---
+
+## Scripts
+
+Dari root project (`sicure/`):
+
+| Script           | Perintah              | Deskripsi                                    |
+|------------------|-----------------------|----------------------------------------------|
+| `npm run dev`    | concurrently          | Jalankan backend + frontend bersamaan        |
+| `npm run dev:frontend` | vite             | Jalankan frontend saja                       |
+| `npm run dev:backend`  | uvicorn          | Jalankan backend saja                        |
+| `npm run build`  | tsc + vite build      | Build frontend untuk production              |
+| `npm run db:migrate` | alembic upgrade head | Jalankan migrasi database                 |
+| `npm run db:seed` | python -m app.seed   | Seed database dengan user demo               |
+| `npm run test`   | pytest                | Jalankan test suite backend                  |
+
+---
+
+## Catatan Keamanan
+
+1. **JWT Secret:** Ganti `JWT_SECRET` di `.env` dengan string random yang kuat sebelum deploy ke production. Generate dengan:
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(64))"
+   ```
+
+2. **CORS:** Di production, set `ALLOWED_ORIGINS` hanya ke domain frontend yang valid. Jangan gunakan wildcard `*`.
+
+3. **APP_ENV:** Set `APP_ENV=production` untuk mengaktifkan:
+   - Pembatasan ukuran request body (Content-Length enforcement)
+   - CORS header yang lebih ketat (hanya method & header yang diperlukan)
+
+4. **File Upload:**
+   - Hanya menerima file JPG, PNG, dan PDF
+   - Maksimum 5MB per file (konfigurasi via `MAX_UPLOAD_SIZE_MB`)
+   - Filename di-sanitize dan diberi UUID prefix untuk mencegah path traversal
+   - File disimpan di filesystem lokal (`./uploads/`)
+
+5. **Password:** Menggunakan bcrypt hashing. Password tidak pernah disimpan dalam plaintext.
+
+6. **Database:** Gunakan password yang kuat untuk PostgreSQL di production. Jangan gunakan user `postgres` tanpa password.
+
+---
+
+## Next Steps
+
+Fitur-fitur yang direncanakan untuk pengembangan selanjutnya:
+
+### Email Notification
+- Notifikasi email otomatis saat PR di-approve/reject
+- Notifikasi ke admin saat ada PR baru masuk
+- Reminder untuk PR yang belum di-review
+
+### 3-Way Match Automation
+- Otomatis membandingkan PR, PO, dan GRN (invoice)
+- Deteksi ketidaksesuaian harga, jumlah, atau item
+- Dashboard match score untuk setiap transaksi
+
+### Audit Trail Export
+- Log semua aktivitas user (create, approve, reject, upload, verify)
+- Export audit trail ke CSV/PDF
+- Filter berdasarkan tanggal, user, atau tipe aksi
+
+### Fitur Tambahan
+- Dashboard analytics (total PR, PO, spending per periode)
+- Multi-level approval workflow
+- Vendor management module
+- Budget tracking & alerts
+- Document versioning untuk GRN
+- Role-based access control yang lebih granular
+- API rate limiting
+- File storage migration ke cloud (S3/GCS)
+
+---
+
+## Tech Stack
+
+| Layer     | Teknologi                                    |
+|-----------|----------------------------------------------|
+| Frontend  | React 19, TypeScript, Vite 8, Axios          |
+| Backend   | FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 |
+| Database  | PostgreSQL 16+ (via asyncpg)                 |
+| Auth      | JWT (python-jose) + bcrypt (passlib)         |
+| Migration | Alembic                                      |
+
+---
+
+## License
+
+Internal project — Universitas.

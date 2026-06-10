@@ -5,20 +5,31 @@ export async function loginRequest(
   email: string,
   password: string
 ): Promise<{ token: string; user: User }> {
-  const tokenRes = await api.post<TokenResponse | APIResponse<TokenResponse>>("/auth/login", {
+  // Login endpoint returns TokenResponse
+  const tokenRes = await api.post<APIResponse<TokenResponse>>("/auth/login", {
     email,
     password,
   });
-  const tokenPayload =
-    "data" in tokenRes.data ? tokenRes.data.data : tokenRes.data;
-  const token = tokenPayload.access_token;
+  const token = tokenRes.data.data.access_token;
 
   // Store token so the interceptor picks it up for /me
   localStorage.setItem("access_token", token);
 
   // Fetch user profile
-  const userRes = await api.get<User | APIResponse<User>>("/auth/me");
-  const user = "data" in userRes.data ? userRes.data.data : userRes.data;
+  const userRes = await api.get<APIResponse<User>>("/auth/me");
+  const user = userRes.data.data;
 
   return { token, user };
+}
+
+export async function registerRequesterRequest(
+  email: string,
+  password: string,
+  fullName: string
+): Promise<void> {
+  await api.post("/auth/register-requester", {
+    email,
+    password,
+    full_name: fullName,
+  });
 }

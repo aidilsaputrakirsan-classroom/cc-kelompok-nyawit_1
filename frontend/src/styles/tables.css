@@ -1,0 +1,102 @@
+/* ===== Table Wrapper ===== */
+.table-wrapper {
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ===== Table Base ===== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* ===== Cells ===== */
+.table th,
+.table td {
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+}
+
+/* ===== Header ===== */
+.table thead th {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* ===== Kolom Nama Item diperlebar ===== */
+.table thead th:nth-child(2),
+.table tbody td:nth-child(2) {
+  min-width: 280px;
+  width: 40%;
+}
+
+/* ===== Body Rows ===== */
+.table tbody tr:nth-child(even) {
+  background: var(--color-surface-alt);
+}
+
+.table tbody tr:hover {
+  background: var(--color-border-light);
+  transition: background var(--transition-fast);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ===== Footer ===== */
+.table tfoot td {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+}
+
+/* ===== Actions Cell ===== */
+.actions-cell {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.actions-cell .btn {
+  flex-shrink: 0;
+}
+
+/* ===== Table Info ===== */
+.table-info {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-md);
+  font-weight: 500;
+}
+
+/* ===== Pagination ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.pagination-info {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
