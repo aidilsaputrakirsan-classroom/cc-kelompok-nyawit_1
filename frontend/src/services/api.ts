@@ -1,4 +1,6 @@
 import axios from "axios";
+import { getFriendlyApiErrorMessage } from "../utils/apiError";
+import { notifyApiError } from "../utils/apiErrorEvents";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:9395/api/v1",
@@ -115,6 +117,15 @@ api.interceptors.response.use(
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
+    }
+
+    const status = error.response?.status;
+    const shouldNotifyGlobally =
+      !originalRequest?.skipGlobalErrorHandler &&
+      (status === undefined || status >= 500 || status === 429);
+
+    if (shouldNotifyGlobally) {
+      notifyApiError(getFriendlyApiErrorMessage(error));
     }
 
     return Promise.reject(error);
