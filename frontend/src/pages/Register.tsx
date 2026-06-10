@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { registerRequesterRequest } from "../services/auth";
+import { getFriendlyApiErrorMessage } from "../utils/apiError";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -39,10 +40,7 @@ export default function Register() {
       // Redirect ke login setelah 2 detik
       setTimeout(() => navigate("/login"), 2000);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail ?? "Registrasi gagal. Silakan coba lagi.";
-      setError(msg);
+      setError(getFriendlyApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

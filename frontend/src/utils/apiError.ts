@@ -1,5 +1,11 @@
 import type { AxiosError } from "axios";
 
+export const SERVICE_UNAVAILABLE_MESSAGE = "Service temporarily unavailable";
+
+export function isServiceUnavailable(status?: number): boolean {
+  return status === undefined || status === 502 || status === 503 || status === 504;
+}
+
 /** Error kustom agar ErrorBoundary bisa menampilkan pesan API yang ramah. */
 export class ApiError extends Error {
   readonly statusCode?: number;
@@ -30,10 +36,14 @@ export function getFriendlyApiErrorMessage(error: unknown): string {
   const axiosError = error as AxiosError<ApiErrorBody>;
 
   if (axiosError.code === "ERR_NETWORK" || !axiosError.response) {
-    return "Tidak dapat terhubung ke server. Periksa koneksi internet Anda atau coba lagi nanti.";
+    return SERVICE_UNAVAILABLE_MESSAGE;
   }
 
   const status = axiosError.response.status;
+
+  if (isServiceUnavailable(status)) {
+    return SERVICE_UNAVAILABLE_MESSAGE;
+  }
   const data = axiosError.response.data;
 
   if (typeof data?.message === "string" && data.message.trim()) {
@@ -67,10 +77,6 @@ export function getFriendlyApiErrorMessage(error: unknown): string {
       return "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.";
     case 500:
       return "Server mengalami gangguan. Tim kami sedang menanganinya.";
-    case 502:
-    case 503:
-    case 504:
-      return "Layanan sedang tidak tersedia. Silakan coba lagi dalam beberapa menit.";
     default:
       return `Terjadi kesalahan (kode ${status}). Silakan coba lagi.`;
   }

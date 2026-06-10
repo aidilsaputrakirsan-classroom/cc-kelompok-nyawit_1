@@ -150,7 +150,8 @@ services:
       dockerfile: frontend/Dockerfile.dev
     container_name: sicure-frontend
     environment:
-      # Frontend sekarang mengarah ke gateway (port 80), bukan langsung ke backend
+      # Semua API call frontend melalui gateway (port 80)
+      VITE_GATEWAY_URL: http://localhost
       VITE_API_BASE_URL: http://localhost/api/v1
     volumes:
       - ./frontend:/app
