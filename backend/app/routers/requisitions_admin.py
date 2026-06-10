@@ -33,12 +33,14 @@ async def list_all_requisitions(
     per_page: int = Query(10, ge=1, le=100, description="Jumlah item per halaman"),
     status_filter: PRStatus | None = Query(None, alias="status", description="Filter berdasarkan status"),
     requester_id: int | None = Query(None, description="Filter berdasarkan requester ID"),
+    category: str | None = Query(None, description="Filter berdasarkan kategori item (mencari di nama item)"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(["admin"])),
 ):
     """
     Admin melihat semua PR dari seluruh requester.
-    Mendukung pagination, filter by status, dan filter by requester.
+    Mendukung pagination, filter by status, filter by requester, dan filter by kategori.
+    Filter kategori akan mencari PR yang memiliki line items dengan nama mengandung kata kunci kategori.
     """
     base = select(PurchaseRequisition)
 
@@ -46,6 +48,15 @@ async def list_all_requisitions(
         base = base.where(PurchaseRequisition.status == status_filter)
     if requester_id is not None:
         base = base.where(PurchaseRequisition.requester_id == requester_id)
+    
+    # Filter by category - find PRs that have line items containing the category keyword
+    if category is not None:
+        from app.models.pr_line_item import PRLineItem
+        base = (
+            base.join(PRLineItem)
+            .where(PRLineItem.item_name.ilike(f"%{category}%"))
+            .distinct()
+        )
 
     # Count total
     count_q = select(func.count()).select_from(base.subquery())
@@ -135,4 +146,42 @@ async def review_requisition(
         success=True,
         data=PROut.model_validate(pr).model_dump(mode="json"),
         message=f"Purchase Requisition berhasil {action}",
+    )
+
+
+# ── GET /categories ───────────────────────────────────────────────
+@router.get(
+    "/categories",
+    summary="Get unique categories from all line items (admin only)",
+)
+async def get_all_item_categories(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(["admin"])),
+):
+    """
+    Admin mendapatkan daftar kategori unik dari semua item di seluruh sistem.
+    Kategori diekstrak dari kata-kata unik dalam item_name.
+    """
+    from app.models.pr_line_item import PRLineItem
+    
+    # Get all distinct item names across all PRs
+    result = await db.execute(
+        select(PRLineItem.item_name).distinct()
+    )
+    item_names = [row[0] for row in result.all()]
+    
+    # Extract unique keywords (simple approach: split by space and get unique words)
+    keywords = set()
+    for name in item_names:
+        # Split by common separators and get individual words
+        words = name.lower().replace('-', ' ').replace('_', ' ').split()
+        keywords.update([word for word in words if len(word) > 2])  # Filter out very short words
+    
+    # Return sorted list of keywords as potential categories
+    categories = sorted(list(keywords))
+    
+    return APIResponse(
+        success=True,
+        data={"categories": categories},
+        message="OK",
     )

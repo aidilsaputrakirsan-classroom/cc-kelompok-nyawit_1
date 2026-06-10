@@ -169,6 +169,24 @@
   gap: var(--spacing-lg);
 }
 
+.register-link {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+}
+
+.register-link a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.register-link a:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
 /* ===== Filter Controls ===== */
 .filter-group {
   display: flex;

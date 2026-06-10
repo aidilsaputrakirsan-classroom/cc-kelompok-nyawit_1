@@ -31,6 +31,8 @@ export default function ConfirmModal({
         return "btn-danger";
       case "warning":
         return "btn-warning";
+      case "info":
+        return "btn-info";
       default:
         return "btn-primary";
     }

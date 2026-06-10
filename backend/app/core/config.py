@@ -1,6 +1,6 @@
-from typing import Any
+import warnings
 
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,19 +8,27 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",
+        extra="ignore",  # abaikan variabel .env yang tidak dikenal
     )
 
     # ── Database ──────────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/sicure_db"
 
     # ── JWT ───────────────────────────────────────────────────────
+    # Mendukung nama variabel dari DeployCC / Railway (SECRET_KEY, ALGORITHM, ...)
+    # maupun nama asli (JWT_SECRET, JWT_ALGORITHM, ...)
     JWT_SECRET: str = "change-me"
+    SECRET_KEY: str = ""  # fallback dari DeployCC / Railway
+    JWT_REFRESH_SECRET: str = "change-me-refresh"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_HOURS: int = 8
+    ALGORITHM: str = ""  # fallback dari DeployCC
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30       # access token: 30 menit
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 0  # fallback dari DeployCC
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7          # refresh token: 7 hari
 
     # ── CORS ──────────────────────────────────────────────────────
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str = ""  # fallback Railway / Modul 11
 
     # ── File Upload ───────────────────────────────────────────────
     UPLOAD_DIR: str = "./uploads"
@@ -28,39 +36,67 @@ class Settings(BaseSettings):
 
     # ── Environment ───────────────────────────────────────────────
     APP_ENV: str = "development"  # "development" | "production"
-    LOG_LEVEL: str = "DEBUG"
-
-    @model_validator(mode="before")
-    @classmethod
-    def apply_railway_aliases(cls, data: Any) -> Any:
-        """Map Railway / modul-11 env var names ke field aplikasi."""
-        if not isinstance(data, dict):
-            return data
-
-        aliases = {
-            "CORS_ORIGINS": "ALLOWED_ORIGINS",
-            "SECRET_KEY": "JWT_SECRET",
-            "ENVIRONMENT": "APP_ENV",
-        }
-        for src, dst in aliases.items():
-            if src in data and dst not in data:
-                data[dst] = data[src]
-
-        return data
-
-    @field_validator("DATABASE_URL", mode="before")
-    @classmethod
-    def normalize_database_url(cls, value: str) -> str:
-        """Railway memberi postgresql:// — SQLAlchemy async butuh asyncpg driver."""
-        if isinstance(value, str) and value.startswith("postgresql://"):
-            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return value
+    ENVIRONMENT: str = ""  # fallback dari DeployCC / Railway
 
     @model_validator(mode="after")
-    def set_log_level_for_environment(self) -> "Settings":
-        if self.APP_ENV.lower() == "production" and self.LOG_LEVEL == "DEBUG":
-            object.__setattr__(self, "LOG_LEVEL", "INFO")
+    def _resolve_deploycc_aliases(self) -> "Settings":
+        """
+        Resolve nama variabel dari DeployCC / Railway ke nama yang dipakai aplikasi.
+        """
+        # DATABASE_URL: pastikan pakai asyncpg driver
+        if self.DATABASE_URL.startswith("postgresql://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace(
+                "postgresql://", "postgresql+asyncpg://", 1
+            )
+
+        # JWT_SECRET ← SECRET_KEY (jika JWT_SECRET masih default)
+        if self.SECRET_KEY and self.JWT_SECRET == "change-me":
+            self.JWT_SECRET = self.SECRET_KEY
+
+        # JWT_REFRESH_SECRET ← SECRET_KEY + suffix (jika belum di-set)
+        if self.SECRET_KEY and self.JWT_REFRESH_SECRET == "change-me-refresh":
+            self.JWT_REFRESH_SECRET = self.SECRET_KEY + "-refresh"
+
+        # JWT_ALGORITHM ← ALGORITHM
+        if self.ALGORITHM and self.JWT_ALGORITHM == "HS256":
+            self.JWT_ALGORITHM = self.ALGORITHM
+
+        # JWT_ACCESS_TOKEN_EXPIRE_MINUTES ← ACCESS_TOKEN_EXPIRE_MINUTES
+        if self.ACCESS_TOKEN_EXPIRE_MINUTES > 0 and self.JWT_ACCESS_TOKEN_EXPIRE_MINUTES == 30:
+            self.JWT_ACCESS_TOKEN_EXPIRE_MINUTES = self.ACCESS_TOKEN_EXPIRE_MINUTES
+
+        # APP_ENV ← ENVIRONMENT
+        if self.ENVIRONMENT and self.APP_ENV == "development":
+            self.APP_ENV = self.ENVIRONMENT
+
+        # ALLOWED_ORIGINS ← CORS_ORIGINS (Railway / Modul 11)
+        if self.CORS_ORIGINS:
+            self.ALLOWED_ORIGINS = self.CORS_ORIGINS
+
         return self
+
+    def model_post_init(self, __context) -> None:
+        """Warn if JWT secrets are still using placeholder values."""
+        _weak_secrets = {
+            "change-me",
+            "change-me-refresh",
+            "your-secret-key-here",
+            "your-refresh-secret-key-here",
+            "your-secret-key-change-me-in-production",
+            "your-refresh-secret-change-me-in-production",
+        }
+        if self.JWT_SECRET in _weak_secrets:
+            warnings.warn(
+                "JWT_SECRET masih menggunakan nilai default! "
+                'Generate secret baru: python -c "import secrets; print(secrets.token_urlsafe(64))"',
+                stacklevel=2,
+            )
+        if self.JWT_REFRESH_SECRET in _weak_secrets:
+            warnings.warn(
+                "JWT_REFRESH_SECRET masih menggunakan nilai default! "
+                'Generate secret baru: python -c "import secrets; print(secrets.token_urlsafe(64))"',
+                stacklevel=2,
+            )
 
     @property
     def allowed_origins_list(self) -> list[str]:

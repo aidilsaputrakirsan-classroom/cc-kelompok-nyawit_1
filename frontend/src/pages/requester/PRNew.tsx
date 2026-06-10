@@ -163,7 +163,7 @@ export default function RequesterPRNew() {
         {/* Line Items */}
         <div className="form-card">
           <div className="form-card-header">
-            <h3>Line Items</h3>
+            <h3>List Items</h3>
             <button type="button" className="btn btn-sm btn-primary" onClick={addItem}>
               + Tambah Item
             </button>
@@ -217,7 +217,7 @@ export default function RequesterPRNew() {
                       <input
                         type="number"
                         min={0}
-                        step={1000}
+                        step="any"
                         value={item.estimated_unit_price}
                         onChange={(e) =>
                           updateItem(index, "estimated_unit_price", parseFloat(e.target.value) || 0)

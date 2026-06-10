@@ -22,7 +22,7 @@ from app.models.purchase_requisition import PurchaseRequisition
 from app.models.user import User
 from app.schemas.common import APIResponse, PaginatedResponse, PaginationMeta
 from app.schemas.pr_line_item import ItemOut
-from app.schemas.purchase_requisition import PRCreate, PROut
+from app.schemas.purchase_requisition import PRCreate, PROut, PRUpdate
 
 router = APIRouter(prefix="/api/v1/requisitions", tags=["requisitions"])
 
@@ -99,12 +99,14 @@ async def list_my_requisitions(
     page: int = Query(1, ge=1, description="Nomor halaman"),
     per_page: int = Query(10, ge=1, le=100, description="Jumlah item per halaman"),
     status_filter: PRStatus | None = Query(None, alias="status", description="Filter berdasarkan status"),
+    category: str | None = Query(None, description="Filter berdasarkan kategori item (mencari di nama item)"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Menampilkan daftar PR milik requester yang sedang login.
-    Mendukung pagination dan filter berdasarkan status.
+    Mendukung pagination dan filter berdasarkan status dan kategori.
+    Filter kategori akan mencari PR yang memiliki line items dengan nama mengandung kata kunci kategori.
     """
     # Base query — only own PRs
     base = select(PurchaseRequisition).where(
@@ -113,6 +115,14 @@ async def list_my_requisitions(
 
     if status_filter is not None:
         base = base.where(PurchaseRequisition.status == status_filter)
+    
+    # Filter by category - find PRs that have line items containing the category keyword
+    if category is not None:
+        base = (
+            base.join(PRLineItem)
+            .where(PRLineItem.item_name.ilike(f"%{category}%"))
+            .distinct()
+        )
 
     # Count total
     count_q = select(func.count()).select_from(base.subquery())
@@ -181,4 +191,179 @@ async def get_requisition_detail(
         success=True,
         data=PROut.model_validate(pr).model_dump(mode="json"),
         message="OK",
+    )
+
+
+# ── GET /categories ───────────────────────────────────────────────
+@router.get(
+    "/categories",
+    summary="Get unique categories from line items",
+)
+async def get_item_categories(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mendapatkan daftar kategori unik dari nama item yang pernah dibuat.
+    Kategori diekstrak dari kata-kata unik dalam item_name.
+    """
+    # Get all distinct item names for this user
+    result = await db.execute(
+        select(PRLineItem.item_name)
+        .join(PurchaseRequisition)
+        .where(PurchaseRequisition.requester_id == current_user.id)
+        .distinct()
+    )
+    item_names = [row[0] for row in result.all()]
+    
+    # Extract unique keywords (simple approach: split by space and get unique words)
+    keywords = set()
+    for name in item_names:
+        # Split by common separators and get individual words
+        words = name.lower().replace('-', ' ').replace('_', ' ').split()
+        keywords.update([word for word in words if len(word) > 2])  # Filter out very short words
+    
+    # Return sorted list of keywords as potential categories
+    categories = sorted(list(keywords))
+    
+    return APIResponse(
+        success=True,
+        data={"categories": categories},
+        message="OK",
+    )
+
+
+# ── PUT /{id} ─────────────────────────────────────────────────────
+@router.put(
+    "/{pr_id}",
+    summary="Edit PR yang masih SUBMITTED",
+)
+async def update_requisition(
+    pr_id: int,
+    body: PRUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Requester mengedit PR yang masih berstatus SUBMITTED.
+    Hanya pemilik PR yang bisa mengedit.
+    Line items lama dihapus dan diganti dengan yang baru.
+    """
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(selectinload(PurchaseRequisition.line_items))
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
+
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Requisition tidak ditemukan",
+        )
+
+    if pr.requester_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak memiliki akses ke PR ini",
+        )
+
+    if pr.status != PRStatus.SUBMITTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hanya PR dengan status SUBMITTED yang bisa diedit",
+        )
+
+    # Update PR fields
+    pr.title = body.title
+    pr.justification = body.justification
+
+    # Remove old line items by clearing the relationship list
+    # This triggers cascade delete automatically
+    pr.line_items.clear()
+    await db.flush()  # Ensure deletions are processed
+
+    # Calculate new total and create new line items
+    total = sum(
+        round(item.quantity * item.estimated_unit_price, 2) for item in body.items
+    )
+    pr.total_amount = total
+
+    for item in body.items:
+        subtotal = round(item.quantity * item.estimated_unit_price, 2)
+        line = PRLineItem(
+            pr_id=pr.id,
+            item_name=item.item_name,
+            quantity=item.quantity,
+            unit_of_measure=item.unit_of_measure,
+            estimated_unit_price=item.estimated_unit_price,
+            subtotal=subtotal,
+        )
+        db.add(line)
+        # Explicitly add to relationship list
+        pr.line_items.append(line)
+
+    await db.commit()
+    
+    # Re-fetch the PR with a fresh query to avoid lazy loading issues
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(selectinload(PurchaseRequisition.line_items))
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
+
+    return APIResponse(
+        success=True,
+        data=PROut.model_validate(pr).model_dump(mode="json"),
+        message="Purchase Requisition berhasil diperbarui",
+    )
+
+
+# ── DELETE /{id} ──────────────────────────────────────────────────
+@router.delete(
+    "/{pr_id}",
+    summary="Batalkan / hapus PR yang masih SUBMITTED",
+)
+async def delete_requisition(
+    pr_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Requester membatalkan/menghapus PR yang masih berstatus SUBMITTED.
+    Hanya pemilik PR yang bisa menghapus.
+    PR beserta line items akan dihapus permanen.
+    """
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
+
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Requisition tidak ditemukan",
+        )
+
+    if pr.requester_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak memiliki akses ke PR ini",
+        )
+
+    if pr.status != PRStatus.SUBMITTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hanya PR dengan status SUBMITTED yang bisa dibatalkan",
+        )
+
+    await db.delete(pr)
+    await db.commit()
+
+    return APIResponse(
+        success=True,
+        data=None,
+        message="Purchase Requisition berhasil dibatalkan dan dihapus",
     )

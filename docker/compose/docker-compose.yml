@@ -1,0 +1,80 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sicure-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sicure_db}
+      POSTGRES_USER: ${POSTGRES_USER:-sicure_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sicure_password}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sicure-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sicure_user} -d ${POSTGRES_DB:-sicure_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    container_name: sicure-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sicure_user}:${POSTGRES_PASSWORD:-sicure_password}@postgres:5432/${POSTGRES_DB:-sicure_db}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-here}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-refresh-secret-key-here}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      UPLOAD_DIR: ${UPLOAD_DIR:-./uploads}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
+      APP_ENV: ${APP_ENV:-development}
+      # Migration runs automatically on startup
+      # Seeding is disabled by default to preserve existing data
+      # Set SEED_ON_STARTUP=true for initial setup only
+      SEED_ON_STARTUP: "false"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sicure-network
+    restart: unless-stopped
+
+  # Frontend (Development mode with hot reload)
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile.dev
+    container_name: sicure-frontend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - sicure-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  sicure-network:
+    driver: bridge

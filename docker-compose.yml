@@ -1,83 +1,80 @@
-# ============================================================
-# Docker Compose — Cloud App
-# Komputasi Awan — SI ITK
-# ============================================================
-# Usage:
-#   docker compose up -d          # Start semua services
-#   docker compose down            # Stop & remove
-#   docker compose logs -f         # Lihat logs
-#   docker compose ps              # Status services
-# ============================================================
+# Docker Compose wrapper for development
+# This file ensures docker compose works from project root
 
 services:
-  # ==================== DATABASE ====================
-  db:
+  # PostgreSQL Database
+  postgres:
     image: postgres:16-alpine
-    container_name: sicure-db
-    restart: unless-stopped
+    container_name: sicure-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: adamdi
-      POSTGRES_DB: sicure
+      POSTGRES_DB: ${POSTGRES_DB:-sicure_db}
+      POSTGRES_USER: ${POSTGRES_USER:-sicure_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sicure_password}
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - cloudnet
+      - sicure-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d sicure"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sicure_user} -d ${POSTGRES_DB:-sicure_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+    restart: unless-stopped
 
-  # ==================== BACKEND ====================
+  # Backend API
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: sicure-backend
-    restart: unless-stopped
-    env_file:
-      - ./backend/.env.docker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-sicure_user}:${POSTGRES_PASSWORD:-sicure_password}@postgres:5432/${POSTGRES_DB:-sicure_db}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-here}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-refresh-secret-key-here}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      UPLOAD_DIR: ${UPLOAD_DIR:-./uploads}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
+      APP_ENV: ${APP_ENV:-development}
+      SEED_ON_STARTUP: "false"
     ports:
-      - "8000:8000"
-    networks:
-      - cloudnet
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+    networks:
+      - sicure-network
+    restart: unless-stopped
 
-  # ==================== FRONTEND ====================
+  # Frontend (Development mode with hot reload)
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: http://localhost:8000/api/v1
+      context: .
+      dockerfile: frontend/Dockerfile.dev
     container_name: sicure-frontend
-    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
     ports:
-      - "3000:80"
-    networks:
-      - cloudnet
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - sicure-network
+    restart: unless-stopped
 
-# ==================== VOLUMES ====================
 volumes:
-  pgdata:
-    name: sicure-pgdata
+  postgres_data:
+    driver: local
 
-# ==================== NETWORKS ====================
 networks:
-  cloudnet:
-    name: sicure-network
+  sicure-network:
     driver: bridge

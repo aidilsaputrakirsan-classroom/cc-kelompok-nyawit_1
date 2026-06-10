@@ -1,12 +1,13 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.session import async_session
+from app.db.session import get_db
 from app.routers import auth
 from app.routers import requisitions
 from app.routers import requisitions_admin
@@ -76,21 +77,49 @@ app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 
 
 @app.get("/health")
-async def health_check():
-    """Health check untuk Docker, Railway, dan CD pipeline."""
-    database = "disconnected"
-    try:
-        async with async_session() as session:
-            await session.execute(text("SELECT 1"))
-        database = "connected"
-    except Exception:
-        pass
-
-    is_healthy = database == "connected"
-    return {
-        "status": "healthy" if is_healthy else "degraded",
+async def health_check(db: AsyncSession = Depends(get_db)):
+    """Health check endpoint — cek status semua komponen."""
+    health = {
+        "status": "healthy",
         "service": "backend",
         "version": "1.0.0",
-        "database": database,
-        "env": settings.APP_ENV,
     }
+    
+    # Cek database connection
+    try:
+        await db.execute(text("SELECT 1"))
+        health["database"] = "connected"
+    except Exception as e:
+        health["status"] = "unhealthy"
+        health["database"] = f"error: {str(e)}"
+    
+    status_code = 200 if health["status"] == "healthy" else 503
+    return JSONResponse(content=health, status_code=status_code)
+
+
+@app.get("/api/v1/health")
+async def api_health_check(db: AsyncSession = Depends(get_db)):
+    """Health check endpoint for API monitoring with detailed component status"""
+    health = {
+        "success": True,
+        "data": {
+            "status": "healthy",
+            "environment": settings.APP_ENV,
+            "version": "1.0.0",
+            "components": {}
+        },
+        "message": "API is running normally"
+    }
+    
+    # Cek database connection
+    try:
+        await db.execute(text("SELECT 1"))
+        health["data"]["components"]["database"] = "connected"
+    except Exception as e:
+        health["data"]["status"] = "unhealthy"
+        health["data"]["components"]["database"] = f"error: {str(e)}"
+        health["success"] = False
+        health["message"] = "API is experiencing issues"
+    
+    status_code = 200 if health["data"]["status"] == "healthy" else 503
+    return JSONResponse(content=health, status_code=status_code)

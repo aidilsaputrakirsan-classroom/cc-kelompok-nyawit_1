@@ -8,12 +8,15 @@ import Layout from "./components/Layout";
 
 // Lazy load pages for code splitting
 const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
 const RequesterDashboard = lazy(() => import("./pages/requester/Dashboard"));
 const RequesterPRNew = lazy(() => import("./pages/requester/PRNew"));
+const RequesterPREdit = lazy(() => import("./pages/requester/PREdit"));
 const RequesterPRDetail = lazy(() => import("./pages/requester/PRDetail"));
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminPRDetail = lazy(() => import("./pages/admin/PRDetail"));
 const AdminPODetail = lazy(() => import("./pages/admin/PODetail"));
+const StatusPage = lazy(() => import("./pages/StatusPage"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -35,6 +38,14 @@ export default function App() {
                 element={
                   <Suspense fallback={<PageLoader />}>
                     <Login />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <Register />
                   </Suspense>
                 }
               />
@@ -68,6 +79,14 @@ export default function App() {
                   element={
                     <Suspense fallback={<PageLoader />}>
                       <RequesterPRDetail />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/requester/pr/:id/edit"
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <RequesterPREdit />
                     </Suspense>
                   }
                 />
@@ -106,6 +125,16 @@ export default function App() {
                   }
                 />
               </Route>
+
+              {/* Status Page (public) */}
+              <Route
+                path="/status"
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <StatusPage />
+                  </Suspense>
+                }
+              />
 
               {/* Catch-all */}
               <Route path="*" element={<Navigate to="/login" replace />} />

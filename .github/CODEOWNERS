@@ -1,0 +1,56 @@
+# ============================================
+# CODEOWNERS - SiCure Project
+# ============================================
+# Format: path_pattern @username1 @username2
+# 
+# Rules:
+# - Code owners MUST approve PRs for their paths
+# - Admin (@imsatonito) can bypass if "Include administrators" is unchecked
+# - CI pipeline must pass before merging
+
+# ============================================
+# BACKEND - Lead Backend
+# ============================================
+backend/ @imsatonito
+
+# ============================================
+# FRONTEND - Lead Frontend
+# ============================================
+frontend/ @imsatonito
+
+# ============================================
+# DEVOPS/INFRASTRUCTURE - Lead DevOps
+# ============================================
+docker/ @imsatonito
+docker-compose*.yml @imsatonito
+*/Dockerfile* @imsatonito
+
+# ============================================
+# CI/CD - GitHub Workflows & Automation
+# ============================================
+.github/workflows/ @imsatonito
+
+# ============================================
+# DOCUMENTATION - Lead QA & Docs
+# ============================================
+docs/ @imsatonito
+*.md @imsatonito
+
+# ============================================
+# ROOT FILES - Chairman (Muchlis)
+# ============================================
+package*.json @imsatonito
+.env* @imsatonito
+.dockerignore @imsatonito
+.gitignore @imsatonito
+mise.toml @imsatonito
+README.md @imsatonito
+
+# ============================================
+# NOTES
+# ============================================
+# - Code owners MUST approve PRs for their paths
+# - Admin (@imsatonito) can bypass if "Include administrators" is unchecked
+# - CI pipeline must pass before merging
+# - All leads are copied on root file changes for visibility
+# ============================================
