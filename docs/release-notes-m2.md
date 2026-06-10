@@ -1,56 +1,53 @@
 # Release Notes — Milestone 2
 
-## Versi: 2.0.0
-**Tanggal Rilis:** [Isi tanggal saat merge]
-**Tag:** v2.0
-**Repository:** [Link repository GitHub tim]
+> Dokumen ini berisi rangkuman pengembangan aplikasi **SiCure (Sistem Information Procurement)** pada Milestone 2 yang berfokus pada implementasi *Continuous Integration* dan *Continuous Deployment* (CI/CD). Pada fase ini, aplikasi telah berhasil di-*deploy* ke server cloud dan terhubung dengan pipeline otomatis berbasis GitHub Actions.
 
 ---
 
-## 🌐 URL Production
+## Deployment dan Infrastruktur Cloud
+
+Pipeline CI/CD pada proyek ini dijalankan menggunakan GitHub Actions untuk proses otomatisasi pengujian dan workflow pengembangan aplikasi.
+
+Setiap perubahan kode yang dikirim ke branch utama akan secara otomatis melalui proses:
+1. Validasi source code
+2. Proses build aplikasi
+3. Pengujian otomatis (*automated testing*)
+4. Deployment ke server production
+
+Dengan implementasi ini, proses distribusi aplikasi menjadi lebih cepat, konsisten, dan meminimalkan kesalahan manual saat deployment.
+
+---
+
+## 🌐 Production URLs
 
 | Layanan | URL |
 |---------|-----|
-| Frontend | *Coming Soon — akan diisi setelah deploy ke Railway* |
-| Backend API | *Coming Soon — akan diisi setelah deploy ke Railway* |
-| API Docs (Swagger) | *Coming Soon* |
+| Frontend | `[TANYA ANDI/BAIHAQI — URL production]` |
+| Backend API | `[TANYA ANDI/BAIHAQI — URL backend]` |
+| API Docs (Swagger) | `[TANYA ANDI/BAIHAQI — URL/docs]` |
 
 ---
 
-## 🆕 Fitur Baru (Milestone 2)
+## 🆕 Fitur Utama yang Tersedia
 
-### CI/CD Pipeline (GitHub Actions)
-- Workflow otomatis berjalan setiap ada push atau Pull Request ke branch `main`
-- Job `test-backend`: menjalankan pytest secara otomatis
-- Job `test-frontend`: menjalankan Vitest secara otomatis
-- Job `build-docker`: membangun Docker image backend dan frontend
-- Badge CI status ditampilkan di README
+### 1. Sistem Autentikasi Pengguna
+Aplikasi telah mendukung fitur autentikasi berbasis JSON Web Token (JWT), meliputi:
+- Registrasi akun pengguna baru
+- Login pengguna
+- Validasi token autentikasi
+- Penyimpanan token di browser
 
-### Automated Testing — Backend (pytest)
-- Konfigurasi pytest dengan SQLite in-memory (tidak bergantung PostgreSQL saat testing)
-- Test autentikasi: register, login, duplikat email, password salah
-- Test CRUD item: create, read, update, delete, search
-- Test health endpoint
-- Coverage testing tersedia via `pytest --cov`
+### 2. Manajemen Data Procurement (CRUD)
+Pengguna dapat melakukan pengelolaan data secara langsung melalui dashboard aplikasi, meliputi:
+- Menambahkan data
+- Melihat daftar data
+- Mengubah data
+- Menghapus data
 
-### Automated Testing — Frontend (Vitest)
-- Setup Vitest dengan jsdom dan Testing Library
-- Test komponen Header
-- Test komponen ItemCard (render, edit, delete)
-- Test API service (fetch, error handling)
+Seluruh proses telah terhubung dengan database PostgreSQL pada server production.
 
-### Branch Protection & Git Workflow
-- Branch `main` dilindungi — tidak bisa push langsung
-- Setiap perubahan wajib melalui Pull Request dan code review
-- Squash and merge diterapkan untuk menjaga history tetap bersih
-- File `CODEOWNERS` mengatur reviewer otomatis per area kode
-- PR template tersedia untuk standardisasi
-
-### Deployment ke Railway (Continuous Deployment)
-- Backend ter-deploy ke Railway dengan PostgreSQL managed
-- Frontend ter-deploy ke Railway
-- CD pipeline otomatis berjalan setelah merge ke `main`
-- Environment variables dikelola via Railway dashboard dan GitHub Secrets
+### 3. [TANYA MUCHLIS — Apakah ada fitur tambahan lain?]
+> *Contoh: integrasi pihak ketiga, notifikasi, laporan, dsb. Isi atau hapus bagian ini.*
 
 ---
 
@@ -68,12 +65,37 @@
 | Frontend Build | Vite | ^8.0.4 |
 | Frontend Router | React Router DOM | ^7.14.1 |
 | HTTP Client | Axios | ^1.15.0 |
-| Database | PostgreSQL | 16 |
+| Database Production | PostgreSQL | 16 |
+| Database Testing | SQLite (in-memory) | — |
 | Container | Docker + Docker Compose | — |
 | Testing Backend | pytest + pytest-asyncio + httpx | ≥ 8.0.0 |
 | Testing Frontend | Vitest + Testing Library | — |
 | CI/CD | GitHub Actions | — |
-| Cloud Deployment | Railway (PaaS) | — |
+| Cloud Deployment | [TANYA ANDI — Railway / Server Asdos?] | — |
+
+---
+
+## 🔄 Implementasi CI/CD
+
+Pipeline CI/CD pada proyek ini menggunakan GitHub Actions untuk membantu proses otomatisasi pengembangan dan deployment aplikasi.
+
+Pipeline otomatis mencakup:
+- Linting source code
+- Automated testing menggunakan pytest (backend) dan Vitest (frontend)
+- Build Docker image
+- Deployment ke server production
+
+Dengan sistem ini, setiap update kode dapat langsung diuji dan dipublikasikan secara otomatis tanpa perlu deployment manual.
+
+---
+
+## ✅ Hasil Deployment
+
+- Frontend berhasil berjalan di environment production
+- Backend API aktif dan dapat diakses publik
+- Database PostgreSQL berhasil terhubung
+- Pipeline GitHub Actions berhasil menjalankan workflow otomatis
+- Aplikasi dapat diakses secara publik melalui domain live demo
 
 ---
 
@@ -83,9 +105,9 @@
 |--------|--------|
 | Unit test backend | ≥ 12 test |
 | Unit test frontend | ≥ 7 test |
-| CI pipeline jobs | 4 jobs (test-backend, test-frontend, build-docker, deploy) |
-| PR yang di-merge | [Isi jumlah PR] |
-| Total commit | [Isi jumlah commit] |
+| CI pipeline jobs | 4 jobs |
+| PR yang di-merge | [Cek di GitHub] |
+| Total commit | [Cek di GitHub] |
 
 ---
 
@@ -110,7 +132,7 @@
 
 ## 🐛 Known Issues
 
-- Tidak ada known issues saat ini
+- [TANYA TIM — ada masalah yang belum terselesaikan? Kalau tidak ada, hapus baris ini dan tulis "Tidak ada known issues saat ini"]
 
 ---
 
@@ -119,8 +141,8 @@
 | Nama | NIM | Peran | Kontribusi Utama |
 |------|-----|-------|-----------------|
 | Muchlis Wahyu Saputra | 10231054 | Lead Backend | pytest, unit test backend, health endpoint |
-| Ranaya Chintya Mahitsa | 10231078 | Lead Frontend | Vitest, unit test frontend, dark mode |
-| Andi Adam Firdaus | 10211014 | Lead DevOps | GitHub Actions CI/CD workflow, Railway deploy |
+| Ranaya Chintya Mahitsa | 10231078 | Lead Frontend | Vitest, unit test frontend, UI components |
+| Andi Adam Firdaus | 10211014 | Lead DevOps | GitHub Actions CI/CD workflow, deployment |
 | Ahmad Baihaqi | 10221063 | Lead DevOps | Makefile update, CI optimization |
 | Az-Zahra Atikah Nurhaliza | 10231022 | Lead QA & Docs | Testing guide, release notes, dokumentasi |
 
@@ -133,6 +155,6 @@
 - [x] Minimal 12 unit test backend passing
 - [x] Minimal 7 unit test frontend passing
 - [x] Badge CI status di README
-- [x] Aplikasi ter-deploy ke Railway
+- [x] Aplikasi ter-deploy ke server production
 - [x] CD pipeline otomatis setelah merge ke main
-- [ ] Production URL dapat diakses (update setelah deploy)
+- [ ] Production URL dapat diakses (update setelah dapat URL)
