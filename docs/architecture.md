@@ -13,28 +13,29 @@ Tujuan penyusunan dokumen ini adalah:
 
 ## 1. Diagram Arsitektur Sistem
 
-Berikut adalah visualisasi arsitektur microservices SiCure. Fungsionalitas terbagi menjadi dua service utama — Auth Service dan Procurement Service — dengan Nginx sebagai API Gateway tunggal dan database PostgreSQL yang saling terisolasi (Database per Service). 
-
-# ini disesuaikan dlu apakah nama services dan path berbeda
+Berikut adalah visualisasi arsitektur microservices SiCure yang telah diimplementasikan. Fungsionalitas terbagi menjadi dua service utama — **Auth Service** dan **Procurement Service** — dengan **Nginx** sebagai API Gateway tunggal dan database PostgreSQL yang saling terisolasi (Database per Service).
 
 ```mermaid
 graph TD
     %% Client Tier
-    User([User Browser]) -->|Akses UI Port 3000| FE[Frontend React]
+    User([User Browser]) -->|Akses UI Port 5173| FE[Frontend React]
 
     %% Gateway Tier
     FE -->|API Call Port 80| Gateway[Nginx API Gateway]
 
     %% Service Tier
-    Gateway -->|Path /auth/* Port 8001| AuthService[Auth Service FastAPI]
-    Gateway -->|Path /procurement/* Port 8002| ProcService[Procurement Service FastAPI]
+    Gateway -->|Path /api/v1/auth/* Port 8001| AuthService[Auth Service FastAPI]
+    Gateway -->|Path /api/v1/requisitions/* Port 8002| ProcService[Procurement Service FastAPI]
+    Gateway -->|Path /api/v1/purchase-orders/* Port 8002| ProcService[Procurement Service FastAPI]
+    Gateway -->|Path /api/v1/grn/* Port 8002| ProcService[Procurement Service FastAPI]
+    Gateway -->|Path /uploads/* Port 8002| ProcService
 
     %% Database Tier
-    AuthService -->|Port 5432| AuthDB[(Auth DB PostgreSQL)]
-    ProcService -->|Port 5432| ProcDB[(Procurement DB PostgreSQL)]
+    AuthService -->|Database URL Port 5432| AuthDB[(Auth DB PostgreSQL)]
+    ProcService -->|Database URL Port 5432| ProcDB[(Procurement DB PostgreSQL)]
 
     %% Inter-Service Communication
-    ProcService -.->|HTTP GET /verify| AuthService
+    ProcService -.->|HTTP GET /api/v1/auth/verify| AuthService
 
     %% Styling
     classDef client fill:#f9f,stroke:#333,stroke-width:2px;
@@ -56,16 +57,14 @@ Aplikasi dipetakan menjadi 6 container yang berjalan di dalam jaringan Docker in
 
 | Service | Port Host | Port Container | Deskripsi |
 |---------|-----------|----------------|-----------|
-| `gateway` | 80 | 80 | API Gateway — reverse proxy tunggal untuk semua request |
-| `frontend` | 3000 | 3000 | React SPA — UI aplikasi procurement |
+| `gateway` | 80 | 80 | Nginx API Gateway — reverse proxy tunggal untuk semua request |
+| `frontend` | 5173 | 5173 | React SPA — UI aplikasi procurement |
 | `auth-service` | 8001 | 8001 | Registrasi, login, dan verifikasi JWT token |
 | `procurement-service` | 8002 | 8002 | Requisitions, Purchase Orders, dan GRN |
-| `auth-db` | 5433 | 5432 | Database PostgreSQL khusus kredensial pengguna |
+| `auth-db` | 5433 | 5432 | Database PostgreSQL khusus data user |
 | `procurement-db` | 5434 | 5432 | Database PostgreSQL khusus data procurement |
 
-> **Catatan:** Port host database diarahkan ke 5433 dan 5434 agar tidak bentrok dengan instalasi PostgreSQL lokal (default 5432).
-
-# konformasi lagi port yg dipake (docker compose)
+> **Catatan:** Port host database diarahkan ke 5433 dan 5434 agar tidak bentrok dengan instalasi PostgreSQL lokal bawaan (default 5432).
 
 ---
 
@@ -73,66 +72,67 @@ Aplikasi dipetakan menjadi 6 container yang berjalan di dalam jaringan Docker in
 
 Seluruh request dari client harus dikirim melalui API Gateway pada port `80`. Nginx akan meneruskan request secara otomatis ke service yang sesuai.
 
-### A. Routing Table (Nginx Gateway) (cek dlu nginx)
+### A. Routing Table (Nginx Gateway)
 
 | Path Pattern | Target Service | Keterangan |
 |-------------|----------------|------------|
-| `/auth/*` | `auth-service:8001` | Semua endpoint autentikasi |
-| `/procurement/*` | `procurement-service:8002` | Requisitions, PO, GRN |
-| `/health` | Gateway langsung | Health check aggregator |
-| `/*` (default) | `frontend:3000` | React SPA fallback |
+| `/api/v1/auth/*` | `auth-service:8001` | Semua endpoint autentikasi |
+| `/api/v1/requisitions/*` | `procurement-service:8002` | Endpoint Purchase Requisitions |
+| `/api/v1/purchase-orders/*` | `procurement-service:8002` | Endpoint Purchase Orders |
+| `/api/v1/grn/*` | `procurement-service:8002` | Endpoint GRN & Bukti Pengiriman |
+| `/uploads/*` | `procurement-service:8002` | Sajian static file untuk dokumen upload |
+| `/health` | Gateway langsung | Health check Gateway |
+| `/*` (default) | `frontend:5173` | React SPA fallback (Vite dev server) |
 
 ---
 
-### B. Auth Service (cek dlu nama pathnya sama ga)
+### B. Auth Service API
 
-Layanan ini mengelola autentikasi pengguna, registrasi akun, login, serta verifikasi token JWT.
+Layanan ini mengelola pendaftaran pengguna, login, logout, dan verifikasi JWT token.
 
 | Method | Endpoint | Auth | Deskripsi |
 |--------|----------|------|-----------|
-| `POST` | `/auth/register` | Public | Mendaftarkan akun pengguna baru |
-| `POST` | `/auth/login` | Public | Validasi kredensial dan menghasilkan JWT token |
-| `POST` | `/auth/logout` | User | Logout dan invalidasi token |
-| `GET` | `/auth/verify` | Internal | Verifikasi token JWT dari service lain |
-| `GET` | `/auth/me` | User | Mengambil data profil pengguna yang sedang login |
+| `POST` | `/api/v1/auth/register` | Admin | Mendaftarkan user baru (admin only) |
+| `POST` | `/api/v1/auth/register-requester` | Public | Mendaftar mandiri sebagai requester |
+| `POST` | `/api/v1/auth/login` | Public | Login dan dapatkan access + refresh token |
+| `POST` | `/api/v1/auth/refresh` | Public | Refresh access token menggunakan refresh token |
+| `POST` | `/api/v1/auth/logout` | User | Logout dan revoke token aktif |
+| `GET` | `/api/v1/auth/me` | User | Profil user yang sedang login |
+| `GET` | `/api/v1/auth/verify` | Internal | Verifikasi token JWT (digunakan internal oleh service lain) |
 
 ---
 
-### C. Procurement Service (nama path tanya dlu sesuai ga)
+### C. Procurement Service API
 
-Layanan ini mengelola seluruh proses procurement — dari permintaan pengadaan, purchase order, hingga penerimaan barang.
+Layanan ini mengelola seluruh proses procurement (permintaan pengadaan, purchase order, dan penerimaan barang).
 
 #### Requisitions (Permintaan Pengadaan)
 
 | Method | Endpoint | Auth | Deskripsi |
 |--------|----------|------|-----------|
-| `GET` | `/procurement/requisitions` | User | Mengambil daftar semua permintaan pengadaan |
-| `POST` | `/procurement/requisitions` | User | Membuat permintaan pengadaan baru |
-| `GET` | `/procurement/requisitions/{id}` | User | Mengambil detail satu permintaan berdasarkan ID |
-| `PUT` | `/procurement/requisitions/{id}` | User | Memperbarui data permintaan pengadaan |
-| `DELETE` | `/procurement/requisitions/{id}` | Admin | Menghapus permintaan pengadaan |
-| `GET` | `/procurement/requisitions/admin` | Admin | Daftar semua permintaan untuk review admin |
+| `POST` | `/api/v1/requisitions/` | Requester | Buat Purchase Requisition baru |
+| `GET` | `/api/v1/requisitions/` | Requester | List PR milik requester bersangkutan |
+| `GET` | `/api/v1/requisitions/{id}` | Requester | Detail PR + line items milik requester |
+| `PUT` | `/api/v1/requisitions/{id}` | Requester | Edit PR yang masih berstatus `SUBMITTED` |
+| `DELETE` | `/api/v1/requisitions/{id}` | Requester | Batalkan / hapus PR yang masih `SUBMITTED` |
+| `GET` | `/api/v1/requisitions/admin/` | Admin | List semua PR untuk review admin |
+| `PUT` | `/api/v1/requisitions/admin/{pr_id}/review` | Admin | Approve atau Reject PR |
 
-#### Purchase Orders
-
-| Method | Endpoint | Auth | Deskripsi |
-|--------|----------|------|-----------|
-| `GET` | `/procurement/purchase-orders` | User | Mengambil daftar semua purchase order |
-| `POST` | `/procurement/purchase-orders` | Admin | Membuat purchase order baru |
-| `GET` | `/procurement/purchase-orders/{id}` | User | Mengambil detail purchase order berdasarkan ID |
-| `PUT` | `/procurement/purchase-orders/{id}` | Admin | Memperbarui data purchase order |
-
-#### GRN — Good Receipt Note (Penerimaan Barang)
+#### Purchase Orders (PO)
 
 | Method | Endpoint | Auth | Deskripsi |
 |--------|----------|------|-----------|
-| `GET` | `/procurement/grn` | User | Mengambil daftar semua penerimaan barang |
-| `POST` | `/procurement/grn` | User | Mencatat penerimaan barang baru |
-| `GET` | `/procurement/grn/{id}` | User | Mengambil detail penerimaan barang berdasarkan ID |
-| `PUT` | `/procurement/grn/{id}` | Admin | Memperbarui data penerimaan barang |
-| `GET` | `/procurement/grn/admin` | Admin | Daftar semua GRN untuk review admin |
+| `POST` | `/api/v1/purchase-orders/{pr_id}/issue` | Admin | Terbitkan PO dari PR yang sudah `APPROVED` |
+| `GET` | `/api/v1/purchase-orders/{pr_id}/my-po` | Requester | Lihat PO untuk PR milik sendiri |
+| `GET` | `/api/v1/purchase-orders/` | Admin | List semua Purchase Order yang terbit |
 
-> **Catatan:** Endpoint yang ditandai `[TANYA MUCHLIS]` perlu dikonfirmasi ke Lead Backend karena mungkin ada perbedaan nama path yang sebenarnya di kode.
+#### GRN — Goods Received Note (Penerimaan Barang)
+
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| `POST` | `/api/v1/grn/{po_id}/submit-doc` | Requester | Upload dokumen bukti penerimaan barang (GRN) |
+| `GET` | `/api/v1/grn/{grn_id}` | User/Admin | Detail dokumen GRN berdasarkan ID |
+| `PUT` | `/api/v1/grn/admin/{grn_id}/verify` | Admin | Verifikasi atau Close GRN |
 
 ---
 
@@ -144,7 +144,7 @@ Sebelum memulai, pastikan perangkat telah memenuhi kebutuhan berikut:
 
 - Git sudah terinstal
 - Docker dan Docker Desktop sudah terinstal dan aktif
-- Port `80` dan `3000` tidak digunakan oleh aplikasi lain
+- Port `80` dan `5173` tidak digunakan oleh aplikasi lain di komputer lokal Anda
 
 ### Langkah-Langkah
 
@@ -161,7 +161,7 @@ cd cc-kelompok-nyawit_1
 cp .env.example .env
 ```
 
-> Edit file `.env` sesuai konfigurasi lokal jika diperlukan.
+> Edit file `.env` jika diperlukan. Secara default, `SEED_ON_STARTUP=true` diaktifkan untuk langsung mengisi data dummy.
 
 **3. Build dan Jalankan Semua Container**
 
@@ -169,7 +169,7 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-> `--build` untuk build ulang image terbaru, `-d` untuk menjalankan di background.
+> Flag `--build` digunakan untuk membangun ulang image, `-d` untuk berjalan di background mode.
 
 **4. Periksa Status Container**
 
@@ -177,21 +177,21 @@ docker compose up --build -d
 docker compose ps
 ```
 
-> Pastikan seluruh container berstatus `Up` atau `healthy`.
+> Pastikan seluruh kontainer berstatus `running` atau `healthy`.
 
-**5. Akses Aplikasi**
+**5. Akses Layanan**
 
 | Layanan | URL |
 |---------|-----|
-| Frontend | http://localhost:3000 |
-| API Gateway | http://localhost |
-| Auth Service | http://localhost:8001/docs |
-| Procurement Service | http://localhost:8002/docs |
+| Frontend UI | [http://localhost:5173](http://localhost:5173) atau [http://localhost](http://localhost) |
+| API Gateway | [http://localhost](http://localhost) |
+| Auth Service Docs | [http://localhost:8001/docs](http://localhost:8001/docs) |
+| Procurement Service Docs | [http://localhost:8002/docs](http://localhost:8002/docs) |
 
 **6. Menghentikan Semua Layanan**
 
 ```bash
-docker compose down
+docker compose down -v
 ```
 
 ---
@@ -204,33 +204,25 @@ docker compose down
 ```bash
 docker compose logs -f gateway
 ```
-> Gunakan untuk memeriksa masalah routing atau koneksi antar service.
+> Gunakan untuk memantau masalah routing dari luar ke backend services.
 
 **Log Auth Service**
 ```bash
 docker compose logs -f auth-service
 ```
-> Gunakan untuk memeriksa error pada proses login, register, atau verifikasi token.
+> Memantau kendala seputar registrasi, verifikasi password, dan validasi JWT.
 
 **Log Procurement Service**
 ```bash
 docker compose logs -f procurement-service
 ```
-> Gunakan untuk memeriksa error pada requisitions, purchase orders, atau GRN.
-
-**Log Database**
-```bash
-docker compose logs -f auth-db
-docker compose logs -f procurement-db
-```
+> Memantau proses pembuatan dokumen PR, PO, upload dokumen GRN, dan verifikasi.
 
 ### B. Masalah Umum dan Solusi
 
 | No | Permasalahan | Penyebab | Solusi |
 |----|-------------|----------|--------|
-| 1 | `Connection Refused` pada Procurement Service | `AUTH_SERVICE_URL` masih menggunakan `localhost` | Ganti menjadi `AUTH_SERVICE_URL: http://auth-service:8001` |
-| 2 | Perubahan kode tidak terefleksi | Docker masih pakai image lama | Jalankan `docker compose down -v` lalu `docker compose up --build -d` |
-| 3 | Error `502 Bad Gateway` | Service backend crash atau belum siap | Cek status dengan `docker compose ps`, lalu cek log service yang bermasalah |
-| 4 | Error `CORS Blocked` | Frontend akses API langsung ke port backend | Pastikan frontend akses melalui gateway `http://localhost/auth/...` |
-| 5 | Data lama masih muncul setelah reset | Docker volume belum dihapus | Jalankan `docker compose down -v` untuk hapus volume lama |
-| 6 | `401 Unauthorized` di Procurement Service | Token tidak diteruskan atau expired | Pastikan header `Authorization: Bearer <token>` disertakan, cek expiry token |
+| 1 | `502 Bad Gateway` di Gateway | Service tujuan mati/belum siap | Periksa status container `docker compose ps` dan log layanannya. |
+| 2 | Error Database Connection | Host DB tidak sesuai | Gunakan host `auth-db` untuk Auth Service dan `procurement-db` untuk Procurement Service (bukan `localhost` di dalam kontainer). |
+| 3 | Dokumen GRN tidak muncul | Path volume upload tidak tepat | Pastikan folder host `./services/procurement-service/uploads` ter-mount dengan benar ke `/app/uploads` di container. |
+| 4 | Token ditolak di Procurement | Inter-service verify gagal | Pastikan `AUTH_SERVICE_URL` di `procurement-service` mengarah ke `http://auth-service:8001`. |
