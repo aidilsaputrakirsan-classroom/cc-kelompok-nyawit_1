@@ -1,20 +1,23 @@
-# Auth Service Dockerfile
-# Service ini HANYA berisi kode auth — tidak ada kode procurement di sini.
-# Ini yang membuat image-nya kecil dan deploy-nya cepat.
-
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install dependencies dulu (layer caching — kalau requirements tidak berubah,
-# Docker tidak perlu install ulang)
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
-COPY . .
+COPY app ./app
 
-# Auth Service jalan di port 8001
 EXPOSE 8001
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8001/health || exit 1
+
+# Runs seeder if SEED_ON_STARTUP=true, then starts the service on port 8001
+CMD ["sh", "-c", "if [ \"$SEED_ON_STARTUP\" = \"true\" ]; then python -m app.seed; fi && uvicorn app.main:app --host 0.0.0.0 --port 8001"]
