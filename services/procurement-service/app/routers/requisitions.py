@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.deps import get_current_user, CurrentUser
+from app.core.deps import get_current_user, CurrentUser, optional_verify_token
 from app.db.session import get_db
 from app.models.enums import PRStatus
 from app.models.pr_line_item import PRLineItem
@@ -69,7 +69,13 @@ async def create_requisition(
         db.add(line)
 
     await db.commit()
-    await db.refresh(pr, attribute_names=["line_items"])
+    # Reload pr with line_items pre-loaded to avoid lazy loading issues
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(selectinload(PurchaseRequisition.line_items))
+        .where(PurchaseRequisition.id == pr.id)
+    )
+    pr = result.scalar_one()
 
     return APIResponse(
         success=True,
@@ -125,6 +131,85 @@ async def list_my_requisitions(
             total_items=total_items,
             total_pages=total_pages,
         ),
+    )
+
+
+# ── GET /public ────────────────────────────────────────────────────
+@router.get("/public", summary="Daftar PR status publik")
+async def list_public_requisitions(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """List PR publik (status APPROVED ke atas)."""
+    PUBLIC_STATUSES = [
+        PRStatus.APPROVED,
+        PRStatus.PO_ISSUED,
+        PRStatus.DOC_SUBMITTED,
+        PRStatus.VERIFIED,
+        PRStatus.CLOSED,
+    ]
+
+    base = select(PurchaseRequisition).where(
+        PurchaseRequisition.status.in_(PUBLIC_STATUSES)
+    )
+
+    count_q = select(func.count()).select_from(base.subquery())
+    total_items = (await db.execute(count_q)).scalar() or 0
+    total_pages = max(1, math.ceil(total_items / per_page))
+
+    offset = (page - 1) * per_page
+    rows_q = (
+        base.options(selectinload(PurchaseRequisition.line_items))
+        .order_by(PurchaseRequisition.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+    )
+    result = await db.execute(rows_q)
+    prs = result.scalars().all()
+
+    return PaginatedResponse(
+        success=True,
+        data=[PROut.model_validate(pr).model_dump(mode="json") for pr in prs],
+        message="OK",
+        pagination=PaginationMeta(
+            page=page,
+            per_page=per_page,
+            total_items=total_items,
+            total_pages=total_pages,
+        ),
+    )
+
+
+# ── GET /stats ─────────────────────────────────────────────────────
+@router.get("/stats", summary="Statistik PR per status")
+async def get_requisition_stats(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser | None = Depends(optional_verify_token),
+):
+    """
+    Statistik PR per status dan total amount.
+    Jika auth tersedia → filter per user. Jika down (degraded) → stats global.
+    """
+    q = select(
+        PurchaseRequisition.status,
+        func.count(PurchaseRequisition.id).label("count"),
+        func.sum(PurchaseRequisition.total_amount).label("total"),
+    )
+    if user is not None:
+        q = q.where(PurchaseRequisition.requester_id == user.id)
+    q = q.group_by(PurchaseRequisition.status)
+
+    result = await db.execute(q)
+    stats = {}
+    for row in result.all():
+        status_val = row.status.value if hasattr(row.status, "value") else str(row.status)
+        stats[status_val] = {"count": row.count, "total_amount": float(row.total or 0)}
+
+    return APIResponse(
+        success=True,
+        data={"by_status": stats, "degraded": user is None},
+        message="OK",
     )
 
 
@@ -233,7 +318,13 @@ async def update_requisition(
         db.add(line)
 
     await db.commit()
-    await db.refresh(pr, attribute_names=["line_items"])
+    # Reload pr with line_items pre-loaded to avoid lazy loading issues
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(selectinload(PurchaseRequisition.line_items))
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one()
 
     return APIResponse(
         success=True,

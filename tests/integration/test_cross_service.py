@@ -35,8 +35,8 @@ def test_gateway_health(gateway_url):
 
 # ── Test 2: Auth Service health via gateway ──────────────────────
 def test_auth_service_health(gateway_url):
-    """Auth Service health check via gateway /auth/health."""
-    response = httpx.get(f"{gateway_url}/auth/health", timeout=10)
+    """Auth Service health check via gateway /api/v1/auth/health."""
+    response = httpx.get(f"{gateway_url}/api/v1/auth/health", timeout=10)
     assert response.status_code == 200
     data = response.json()
     assert data["service"] == "auth-service"
@@ -69,21 +69,22 @@ def test_register_login_flow(gateway_url):
 
     # Register requester
     resp = httpx.post(
-        f"{gateway_url}/auth/register-requester",
+        f"{gateway_url}/api/v1/auth/register-requester",
         json={"email": email, "password": "FlowTest123", "full_name": "Flow User"},
         timeout=10,
     )
     assert resp.status_code == 201
-    assert resp.json()["email"] == email
+    assert resp.json()["data"]["email"] == email
 
     # Login
     resp = httpx.post(
-        f"{gateway_url}/auth/login",
+        f"{gateway_url}/api/v1/auth/login",
         json={"email": email, "password": "FlowTest123"},
         timeout=10,
     )
     assert resp.status_code == 200
-    assert "access_token" in resp.json()
+    assert "access_token" in resp.json()["data"]
+
 
 
 # ── Test 5: Cross-service auth verification ──────────────────────

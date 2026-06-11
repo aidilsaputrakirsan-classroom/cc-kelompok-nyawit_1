@@ -27,7 +27,7 @@ def test_user():
 
     # Register requester (public endpoint)
     response = httpx.post(
-        f"{GATEWAY_URL}/auth/register-requester",
+        f"{GATEWAY_URL}/api/v1/auth/register-requester",
         json={"email": email, "password": password, "full_name": full_name},
         timeout=10,
     )
@@ -35,12 +35,12 @@ def test_user():
 
     # Login
     response = httpx.post(
-        f"{GATEWAY_URL}/auth/login",
+        f"{GATEWAY_URL}/api/v1/auth/login",
         json={"email": email, "password": password},
         timeout=10,
     )
     assert response.status_code == 200, f"Login failed: {response.text}"
-    token = response.json()["access_token"]
+    token = response.json()["data"]["access_token"]
 
     return {
         "email": email,
