@@ -51,3 +51,13 @@ async def api_health_check():
         },
         "message": "Auth Service is running normally"
     }
+
+
+@app.get("/api/v1/auth/health")
+async def api_auth_health_check():
+    return {
+        "status": "healthy",
+        "service": "auth-service",
+        "env": settings.APP_ENV
+    }
+

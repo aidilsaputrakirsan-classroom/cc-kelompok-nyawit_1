@@ -13,7 +13,9 @@ Tujuan penyusunan dokumen ini adalah:
 
 ## 1. Diagram Arsitektur Sistem
 
-Berikut adalah visualisasi arsitektur microservices SiCure yang telah diimplementasikan. Fungsionalitas terbagi menjadi dua service utama — **Auth Service** dan **Procurement Service** — dengan **Nginx** sebagai API Gateway tunggal dan database PostgreSQL yang saling terisolasi (Database per Service).
+Berikut adalah visualisasi arsitektur microservices SiCure yang telah diimplementasikan. Fungsionalitas terbagi menjadi dua service utama — **Auth Service** dan **Procurement Service** — dengan **Nginx** sebagai API Gateway tunggal dan database PostgreSQL yang saling terisolasi (Database per Service). 
+
+Komunikasi inter-service dari **Procurement Service** ke **Auth Service** untuk verifikasi token dilindungi dengan ketahanan berlapis berupa **Retry Logic (Exponential Backoff)** dan **Circuit Breaker Pattern** untuk mencegah kegagalan berantai (*cascading failure*).
 
 ```mermaid
 graph TD
@@ -26,16 +28,16 @@ graph TD
     %% Service Tier
     Gateway -->|Path /api/v1/auth/* Port 8001| AuthService[Auth Service FastAPI]
     Gateway -->|Path /api/v1/requisitions/* Port 8002| ProcService[Procurement Service FastAPI]
-    Gateway -->|Path /api/v1/purchase-orders/* Port 8002| ProcService[Procurement Service FastAPI]
-    Gateway -->|Path /api/v1/grn/* Port 8002| ProcService[Procurement Service FastAPI]
+    Gateway -->|Path /api/v1/purchase-orders/* Port 8002| ProcService
+    Gateway -->|Path /api/v1/grn/* Port 8002| ProcService
     Gateway -->|Path /uploads/* Port 8002| ProcService
 
     %% Database Tier
     AuthService -->|Database URL Port 5432| AuthDB[(Auth DB PostgreSQL)]
     ProcService -->|Database URL Port 5432| ProcDB[(Procurement DB PostgreSQL)]
 
-    %% Inter-Service Communication
-    ProcService -.->|HTTP GET /api/v1/auth/verify| AuthService
+    %% Inter-Service Communication with Resilience
+    ProcService -.->|HTTP GET /verify<br/>Protected by Retry & Circuit Breaker| AuthService
 
     %% Styling
     classDef client fill:#f9f,stroke:#333,stroke-width:2px;

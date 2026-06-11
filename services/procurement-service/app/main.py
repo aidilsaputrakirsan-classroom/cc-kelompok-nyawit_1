@@ -1,4 +1,6 @@
 from pathlib import Path
+import httpx
+from sqlalchemy import text
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
+from app.core.deps import auth_circuit
 from app.routers import requisitions, requisitions_admin, purchase_orders, grn, grn_admin
 from app.models.purchase_requisition import PurchaseRequisition
 from app.models.pr_line_item import PRLineItem
@@ -68,7 +71,58 @@ async def startup_event():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "procurement-service", "env": settings.APP_ENV}
+    """
+    Aggregated health check: cek DB + Auth Service + circuit breaker.
+    Status overall = healthy hanya jika semua dependency healthy.
+    """
+    checks = {}
+
+    # 1. Database connectivity
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["database"] = {"status": "healthy"}
+    except Exception as e:
+        checks["database"] = {"status": "unhealthy", "detail": str(e)}
+
+    # 2. Circuit breaker status
+    cb_status = auth_circuit.get_status()
+    checks["circuit_breaker"] = {
+        "status": "healthy" if cb_status["state"] != "OPEN" else "degraded",
+        **cb_status,
+    }
+
+    # 3. Auth Service reachability (non-blocking, short timeout)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{settings.AUTH_SERVICE_URL}/api/v1/auth/health", timeout=2.0
+            )
+        if resp.status_code == 200:
+            checks["auth_service"] = {"status": "healthy"}
+        else:
+            checks["auth_service"] = {
+                "status": "degraded",
+                "status_code": resp.status_code,
+            }
+    except Exception as e:
+        checks["auth_service"] = {"status": "unhealthy", "detail": str(e)}
+
+    # Overall status
+    statuses = [c["status"] for c in checks.values()]
+    if all(s == "healthy" for s in statuses):
+        overall = "healthy"
+    elif any(s == "unhealthy" for s in statuses):
+        overall = "unhealthy"
+    else:
+        overall = "degraded"
+
+    return {
+        "status": overall,
+        "service": "procurement-service",
+        "version": "1.0.0",
+        "checks": checks,
+    }
 
 
 @app.get("/api/v1/health")

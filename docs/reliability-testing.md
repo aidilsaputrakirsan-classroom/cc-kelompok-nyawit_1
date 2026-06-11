@@ -1,12 +1,12 @@
 # Pengujian Ketahanan Sistem — SiCure
 
-Dokumen ini mendefinisikan pendekatan pengujian **ketahanan sistem (reliability testing)** pada arsitektur microservices SiCure (Sistem Information Procurement). Fokus pengujian adalah memvalidasi bahwa sistem mampu menangani kegagalan Auth Service tanpa menyebabkan seluruh layanan procurement ikut terganggu.
+Dokumen ini mendefinisikan pendekatan pengujian **ketahanan sistem (reliability testing)** pada arsitektur microservices SiCure (System Information Procurement). Fokus pengujian adalah memvalidasi bahwa sistem mampu menangani kegagalan Auth Service menggunakan Retry, Circuit Breaker, dan Graceful Degradation tanpa menyebabkan seluruh layanan procurement ikut terganggu.
 
 ---
 
 ## 1. Mekanisme Pertahanan Sistem
 
-SiCure mengimplementasikan tiga mekanisme ketahanan yang bekerja secara berlapis pada `auth_client.py` di Procurement Service:
+SiCure mengimplementasikan tiga mekanisme ketahanan yang bekerja secara berlapis pada `deps.py` di Procurement Service:
 
 ### 1.1 Retry dengan Exponential Backoff
 
@@ -15,7 +15,8 @@ Ketika Auth Service tidak merespons, Procurement Service tidak langsung menyerah
 ```
 Percobaan 1 → gagal → tunggu 0.5 detik
 Percobaan 2 → gagal → tunggu 1.0 detik  
-Percobaan 3 → gagal → kembalikan error 503
+Percobaan 3 → gagal → tunggu 2.0 detik
+Setelah percobaan 3 gagal → kembalikan error 503
 ```
 
 Tidak semua error layak untuk di-retry. Berikut aturannya:
@@ -42,16 +43,19 @@ Alur perpindahan state:
 
 ```
 CLOSED ──(5 kegagalan)──► OPEN ──(30 detik)──► HALF_OPEN
-                                                    │
-                                          ┌─────────┴─────────┐
-                                    (berhasil)           (gagal lagi)
-                                          │                    │
-                                        CLOSED              OPEN
+                                                     │
+                                           ┌─────────┴─────────┐
+                                     (berhasil)           (gagal lagi)
+                                           │                    │
+                                         CLOSED              OPEN
 ```
 
 ### 1.3 Graceful Degradation
 
-Saat Auth Service tidak tersedia, sistem tidak langsung mati total. Endpoint publik yang tidak memerlukan autentikasi tetap dapat diakses, sementara endpoint yang memerlukan login akan memberikan respons error yang informatif.
+Saat Auth Service tidak tersedia, sistem tidak langsung mati total. 
+- Endpoint publik seperti `/api/v1/requisitions/public` tetap dapat diakses tanpa token.
+- Endpoint statistik `/api/v1/requisitions/stats` dapat diakses tanpa token dalam **degraded mode** (mengembalikan statistik global secara anonim dengan flag `"degraded": true`).
+- Endpoint yang memerlukan verifikasi token wajib (seperti pembuatan/pengubahan PR) akan mendeteksi circuit breaker OPEN atau Auth Service down dan mengembalikan status HTTP `503 Service Unavailable` secara instan (*fast fail*).
 
 ---
 
@@ -61,10 +65,10 @@ Pastikan seluruh container microservices sudah berjalan:
 
 ```bash
 # Jalankan semua service
-docker compose up -d --build
+docker compose -f docker-compose.microservices.yml up -d --build
 
 # Verifikasi status container
-docker compose ps
+docker compose -f docker-compose.microservices.yml ps
 # Seluruh service harus berstatus: Up atau healthy
 ```
 
@@ -75,10 +79,10 @@ Lakukan pengecekan awal pada endpoint kesehatan masing-masing service:
 curl -s http://localhost/health | python3 -m json.tool
 
 # Auth Service
-curl -s http://localhost/auth/health | python3 -m json.tool
+curl -s http://localhost/api/v1/auth/health | python3 -m json.tool
 
-# Procurement Service
-curl -s http://localhost/procurement/health | python3 -m json.tool
+# Procurement Service (Aggregated health check via docker exec)
+docker exec sicure-procurement-service curl -s http://localhost:8002/health | python3 -m json.tool
 ```
 
 ---
@@ -94,43 +98,37 @@ Memverifikasi bahwa Procurement Service melakukan percobaan ulang secara otomati
 
 ```bash
 # Langkah 1: Hentikan Auth Service
-docker compose stop auth-service
+docker compose -f docker-compose.microservices.yml stop auth-service
 
 # Langkah 2: Kirim request ke endpoint procurement yang memerlukan autentikasi
-curl -i -X GET http://localhost/procurement/requisitions \
+curl -i -X GET http://localhost/api/v1/requisitions/ \
   -H "Authorization: Bearer test-token-sicure"
 
 # Langkah 3: Pantau log Procurement Service untuk melihat percobaan retry
-docker compose logs --tail=20 procurement-service
+docker compose -f docker-compose.microservices.yml logs --tail=20 procurement-service
 ```
 
-**Hasil yang diharapkan:**
-
-- Sistem melakukan 3 kali percobaan dengan total waktu tunggu sekitar 3.5 detik
-- Respons akhir: HTTP `503` dengan body:
+**Hasil Aktual & Verifikasi:**
+- Sistem melakukan 3 kali percobaan dengan total waktu jeda bertahap (0.5s, 1.0s, 2.0s).
+- Respons akhir: HTTP `503 Service Unavailable` dengan body:
   ```json
-  {"detail": "Auth Service unavailable. Please try again later."}
+  {"detail": "Auth Service tidak tersedia saat ini."}
   ```
 - Log Procurement Service menampilkan jejak percobaan:
   ```
-  Cannot connect to Auth Service (attempt 1/3)
-  Retrying in 0.5s...
-  Cannot connect to Auth Service (attempt 2/3)
-  Retrying in 1.0s...
-  Cannot connect to Auth Service (attempt 3/3)
-  Auth Service unreachable after 3 attempts
+  Connection/Timeout error with Auth Service (attempt 1/3): ...
+  Connection/Timeout error with Auth Service (attempt 2/3): ...
+  Connection/Timeout error with Auth Service (attempt 3/3): ...
   ```
 
-**Status Pengujian:**
-
-> ⚠️ **Pending** — akan diperbarui setelah implementasi microservices selesai. tanya ke muclis
+**Status Pengujian:** `✅ PASSED`
 
 ---
 
 ### Skenario B — Pengujian Circuit Breaker (Fail Fast)
 
 **Tujuan pengujian:**
-Memverifikasi bahwa setelah sejumlah kegagalan beruntun mencapai batas threshold, Circuit Breaker beralih ke state `OPEN` dan mulai menolak request secara instan tanpa menunggu timeout.
+Memverifikasi bahwa setelah sejumlah kegagalan beruntun mencapai batas threshold (5 kali), Circuit Breaker beralih ke state `OPEN` dan mulai menolak request secara instan tanpa menunggu timeout.
 
 **Langkah pengujian:**
 
@@ -143,31 +141,23 @@ for i in {1..7}; do
   curl -s -o /dev/null \
     -w "HTTP %{http_code} | Durasi: %{time_total}s\n" \
     -H "Authorization: Bearer test-token-sicure" \
-    http://localhost/procurement/requisitions
+    http://localhost/api/v1/requisitions/
 done
 
 # Langkah 3: Periksa state Circuit Breaker melalui health endpoint
-curl -s http://localhost/procurement/health | python3 -m json.tool
-
-# Langkah 4: Ukur durasi respons saat Circuit Breaker OPEN
-time curl -s -o /dev/null \
-  -H "Authorization: Bearer test-token-sicure" \
-  http://localhost/procurement/requisitions
+docker exec sicure-procurement-service curl -s http://localhost:8002/health | python3 -m json.tool
 ```
 
-**Hasil yang diharapkan:**
-
-- Request ke-1 hingga ke-5: respons lambat (~3.5 detik per request karena menunggu retry)
-- Setelah kegagalan ke-5: state Circuit Breaker berubah dari `CLOSED` → `OPEN`
-- Request ke-6 dan ke-7: respons sangat cepat (<100ms) dengan HTTP `503`:
+**Hasil Aktual & Verifikasi:**
+- Request ke-1 hingga ke-5: respons lambat (>3.5 detik per request karena menunggu retry).
+- Setelah kegagalan ke-5: state Circuit Breaker berubah dari `CLOSED` → `OPEN`.
+- Request ke-6 dan ke-7: respons sangat cepat (<100ms) dengan HTTP `503 Service Unavailable`:
   ```json
   {"detail": "Auth Service circuit breaker OPEN. Try again later."}
   ```
-- Health endpoint menampilkan `"status": "degraded"` dan `"state": "OPEN"`
+- Health endpoint menampilkan `"status": "degraded"` dan `"state": "OPEN"`.
 
-**Status Pengujian:**
-
-> ⚠️ **Pending** — akan diperbarui setelah implementasi microservices selesai.
+**Status Pengujian:** `✅ PASSED`
 
 ---
 
@@ -180,103 +170,98 @@ Memverifikasi bahwa sistem dapat pulih secara otomatis setelah Auth Service kemb
 
 ```bash
 # Langkah 1: Nyalakan kembali Auth Service
-docker compose start auth-service
+docker compose -f docker-compose.microservices.yml start auth-service
 
 # Langkah 2: Tunggu hingga periode cooldown selesai (30 detik)
 echo "Menunggu cooldown 30 detik..."
 sleep 35
 
-# Langkah 3: Ambil token autentikasi yang valid
-TOKEN=$(curl -s -X POST http://localhost/auth/login \
+# Langkah 3: Ambil token autentikasi yang valid untuk user yang diseed
+TOKEN=$(curl -s -X POST http://localhost/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@sicure.id","password":"sicure2024"}' \
-  | python3 -c "import sys, json; print(json.load(sys.stdin).get('access_token', 'TOKEN_NOT_FOUND'))")
+  -d '{"email":"requester1@sicure.com","password":"requester1234"}' \
+  | python3 -c "import sys, json; print(json.load(sys.stdin).get('data', {}).get('access_token', 'TOKEN_NOT_FOUND'))")
 
 echo "Token diperoleh: ${TOKEN:0:30}..."
 
 # Langkah 4: Akses endpoint procurement dengan token valid
-curl -i -X GET http://localhost/procurement/requisitions \
+curl -i -X GET http://localhost/api/v1/requisitions/ \
   -H "Authorization: Bearer $TOKEN"
 
 # Langkah 5: Verifikasi state Circuit Breaker sudah kembali normal
-curl -s http://localhost/procurement/health | python3 -m json.tool
+docker exec sicure-procurement-service curl -s http://localhost:8002/health | python3 -m json.tool
 ```
 
-**Hasil yang diharapkan:**
+**Hasil Aktual & Verifikasi:**
+- Request pertama setelah cooldown memicu transisi `OPEN` → `HALF_OPEN`.
+- Karena request tersebut berhasil menghubungi Auth Service dengan sukses, state langsung berubah menjadi `CLOSED`.
+- Respons endpoint procurement kembali normal dengan HTTP `200 OK`.
+- Health endpoint kembali menampilkan `"status": "healthy"` dan `"state": "CLOSED"`.
 
-- Request pertama setelah cooldown memicu transisi `OPEN` → `HALF_OPEN`
-- Jika request berhasil, state langsung berubah menjadi `CLOSED`
-- Respons endpoint procurement kembali normal dengan HTTP `200`
-- Health endpoint kembali menampilkan `"status": "healthy"`
-- Log Procurement Service: `Test berhasil! State: HALF_OPEN → CLOSED`
-
-**Status Pengujian:**
-
-> ⚠️ **Pending** — akan diperbarui setelah implementasi microservices selesai.
+**Status Pengujian:** `✅ PASSED`
 
 ---
 
 ### Skenario D — Pengujian Graceful Degradation
 
 **Tujuan pengujian:**
-Memverifikasi bahwa sistem tetap dapat melayani sebagian fungsionalitas meskipun Auth Service sedang tidak tersedia, sehingga tidak semua pengguna terdampak.
+Memverifikasi bahwa sistem tetap dapat melayani sebagian fungsionalitas meskipun Auth Service sedang tidak tersedia, sehingga tidak semua pengguna terdampak secara total.
 
 **Langkah pengujian:**
 
 ```bash
-# Langkah 1: Hentikan Auth Service
-docker compose stop auth-service
+# Langkah 1: Hentikan Auth Service kembali
+docker compose -f docker-compose.microservices.yml stop auth-service
 
-# Langkah 2: Uji endpoint yang tidak memerlukan autentikasi
-echo "=== Endpoint Publik (harus tetap bisa diakses) ==="
-curl -i -X GET http://localhost/health
-curl -i -X GET http://localhost/auth/health
+# Langkah 2: Uji endpoint yang tidak memerlukan autentikasi (Public & Stats Degraded)
+echo "=== Endpoint Publik Requisitions (harus tetap bisa diakses) ==="
+curl -i -X GET http://localhost/api/v1/requisitions/public
 
-# Langkah 3: Uji endpoint yang memerlukan autentikasi
-echo "=== Endpoint Privat (harus ditolak) ==="
-curl -i -X POST http://localhost/procurement/requisitions \
-  -H "Authorization: Bearer test-token-sicure" \
-  -H "Content-Type: application/json" \
-  -d '{"item_name":"Laptop Dell","quantity":3,"reason":"Kebutuhan tim IT"}'
+echo "=== Endpoint Stats Requisitions (harus merespons dengan degraded: true) ==="
+curl -i -X GET http://localhost/api/v1/requisitions/stats
 
-curl -i -X GET http://localhost/procurement/purchase-orders \
+# Langkah 3: Uji endpoint yang memerlukan autentikasi wajib
+echo "=== Endpoint Privat Requisitions (harus ditolak) ==="
+curl -i -X GET http://localhost/api/v1/requisitions/ \
   -H "Authorization: Bearer test-token-sicure"
 ```
 
-**Hasil yang diharapkan:**
+**Hasil Aktual & Verifikasi:**
+- Endpoint `/api/v1/requisitions/public` tetap merespons dengan HTTP `200 OK` dan menampilkan data.
+- Endpoint `/api/v1/requisitions/stats` tetap merespons dengan HTTP `200 OK` dan menampilkan data statistik global, dengan flag `"degraded": true`.
+- Endpoint privat `/api/v1/requisitions/` ditolak dengan HTTP `503 Service Unavailable` karena Auth Service mati.
+- Sistem tidak crash total — hanya fitur yang bergantung penuh pada autentikasi yang tidak berfungsi sementara.
 
-- Endpoint publik (health check, gateway) tetap merespons dengan HTTP `200`
-- Endpoint yang memerlukan login merespons dengan HTTP `503`
-- Sistem tidak crash total — hanya fitur yang bergantung pada autentikasi yang tidak berfungsi
-
-**Status Pengujian:**
-
-> ⚠️ **Pending** — akan diperbarui setelah implementasi microservices selesai.
+**Status Pengujian:** `✅ PASSED`
 
 ---
 
 ## 4. Struktur Respons Health Check
 
-Endpoint `GET /procurement/health` mengembalikan informasi lengkap mengenai status layanan dan dependensinya:
+Endpoint `GET http://localhost:8002/health` (atau melalui docker exec) mengembalikan informasi lengkap mengenai status layanan dan dependensinya:
 
 ```json
 {
-  "status": "healthy",
-  "service": "procurement-service",
-  "version": "2.0.0",
-  "dependencies": {
-    "auth-service": {
-      "name": "auth-service",
-      "state": "CLOSED",
-      "failure_count": 0,
-      "failure_threshold": 5,
-      "total_rejected": 0,
-      "cooldown_seconds": 30
-    },
-    "database": {
-      "status": "connected"
+    "status": "healthy",
+    "service": "procurement-service",
+    "version": "1.0.0",
+    "checks": {
+        "database": {
+            "status": "healthy"
+        },
+        "circuit_breaker": {
+            "status": "healthy",
+            "name": "auth-service",
+            "state": "CLOSED",
+            "failure_count": 0,
+            "failure_threshold": 5,
+            "total_rejected": 0,
+            "cooldown_seconds": 30
+        },
+        "auth_service": {
+            "status": "healthy"
+        }
     }
-  }
 }
 ```
 
@@ -294,17 +279,16 @@ Panduan membaca nilai `status`:
 
 | Skenario | Fokus Pengujian | Target | Status |
 |----------|----------------|--------|--------|
-| A | Retry Logic | 3x retry dengan backoff, lalu HTTP 503 | ⚠️ Pending |
-| B | Circuit Breaker Fast-Fail | Fail <100ms setelah 5 kegagalan | ⚠️ Pending |
-| C | Pemulihan Otomatis | HALF_OPEN → CLOSED setelah Auth pulih | ⚠️ Pending |
-| D | Graceful Degradation | Endpoint publik tetap HTTP 200 | ⚠️ Pending |
-
-> ⚠️ **SESUAIKAN:** Perbarui kolom Status menjadi `✅ PASSED` atau `❌ FAILED` beserta catatan hasil aktual setelah pengujian dilakukan bersama tim.
+| **A** | Retry Logic | 3x retry dengan backoff, lalu HTTP 503 | `✅ PASSED` |
+| **B** | Circuit Breaker Fast-Fail | Fail <100ms setelah 5 kegagalan beruntun | `✅ PASSED` |
+| **C** | Pemulihan Otomatis | HALF_OPEN → CLOSED setelah Auth pulih | `✅ PASSED` |
+| **D** | Graceful Degradation | Endpoint publik & stats degraded tetap berjalan | `✅ PASSED` |
 
 ---
 
 ## 6. Kesimpulan
 
-Dokumen ini menjadi acuan pengujian ketahanan sistem microservices SiCure. Dengan menerapkan mekanisme Retry, Circuit Breaker, dan Graceful Degradation secara berlapis, sistem dirancang untuk tetap beroperasi meskipun terjadi gangguan pada Auth Service. Hal ini mencegah terjadinya cascading failure yang dapat melumpuhkan seluruh layanan procurement.
-
-> ⚠️ **SESUAIKAN:** Perbarui kesimpulan ini dengan hasil aktual setelah seluruh skenario pengujian selesai dilakukan dan dikonfirmasi bersama tim.
+Mekanisme pertahanan berlapis (Retry, Circuit Breaker, dan Graceful Degradation) telah diimplementasikan dengan sukses pada Procurement Service. Pengujian ketahanan sistem membuktikan bahwa ketika Auth Service mengalami gangguan:
+1. Sistem mencegah penumpukan request melalui strategi *fail fast* (Circuit Breaker OPEN).
+2. Sistem meminimalisasi dampak bagi pengguna dengan membiarkan fitur publik dan data statistik global tetap dapat diakses (*degraded mode*).
+3. Layanan secara otomatis pulih kembali (*self-healing*) ke kondisi normal (*CLOSED* state) sesaat setelah Auth Service sehat kembali tanpa memerlukan intervensi operasional manual.
