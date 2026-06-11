@@ -10,7 +10,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { loginRequest, logoutRequest } from "../services/auth";
 import api from "../services/api";
 import { getFriendlyApiErrorMessage } from "../utils/apiError";
-import type { User, UserRole } from "../types";
+import type { User, UserRole, APIResponse } from "../types";
 
 interface AuthContextType {
   user: User | null;
@@ -35,9 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("access_token");
     if (token) {
       api
-        .get<User>("/auth/me")
+        .get<APIResponse<User>>("/auth/me")
         .then((res) => {
-          setUser(res.data);
+          setUser(res.data.data);
         })
         .catch(() => {
           localStorage.removeItem("access_token");
