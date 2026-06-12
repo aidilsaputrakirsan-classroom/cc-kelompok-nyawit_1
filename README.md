@@ -281,9 +281,9 @@ Auto-deploy setiap push/merge ke `main`.
 
 | Service | URL |
 |---------|-----|
-| Frontend | _(isi setelah generate domain)_ |
-| Backend API | _(isi setelah generate domain)_ |
-| API Docs | _(backend-url)_/docs |
+| Frontend | https://sicure-app.up.railway.app |
+| Backend API | https://sicure-api.up.railway.app |
+| API Docs (Swagger) | https://sicure-api.up.railway.app/docs |
 
 ---
 
