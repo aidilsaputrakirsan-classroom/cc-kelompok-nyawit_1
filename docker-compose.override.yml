@@ -1,0 +1,38 @@
+# ==============================================
+# Local Development Overrides (auto-applied)
+# ==============================================
+# File ini OTOMATIS dipakai saat menjalankan `docker compose up`
+# (tanpa -f). Tujuannya: hot-reload untuk backend + frontend agar
+# bisa menambah fitur tanpa rebuild/deploy berulang.
+#
+# CATATAN:
+# - TIDAK dipakai untuk production. Untuk prod gunakan secara eksplisit:
+#     docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# - Railway TIDAK memakai file ini (Railway build dari Dockerfile).
+
+services:
+  backend:
+    # Mount source code → uvicorn --reload memantau perubahan
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      - ./backend/uploads:/app/uploads
+    environment:
+      APP_ENV: development
+      # Seed user demo saat startup (set 'false' jika tidak ingin re-seed)
+      SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
+    # Jalankan migrasi, (opsional) seed, lalu uvicorn dengan --reload
+    command:
+      - sh
+      - -c
+      - |
+        echo "🔄 alembic upgrade head..." && alembic upgrade head && \
+        if [ "$${SEED_ON_STARTUP}" = "true" ]; then echo "🌱 seeding..." && python -m app.seed || true; fi && \
+        echo "🚀 uvicorn --reload on :8000" && \
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    # Dockerfile.dev sudah menjalankan vite dev server (hot reload).
+    # Volume mount diatur di docker-compose.yml.
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}

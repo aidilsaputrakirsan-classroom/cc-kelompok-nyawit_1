@@ -42,11 +42,19 @@ class PurchaseOrder(Base):
         Numeric(precision=18, scale=2),
         nullable=False,
     )
+    selected_vendor_quote_id: Mapped[int | None] = mapped_column(
+        ForeignKey("vendor_quotes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # ── relationships ──────────────────────────────────────────────
     purchase_requisition: Mapped["PurchaseRequisition"] = relationship(
         "PurchaseRequisition",
         back_populates="purchase_order",
+    )
+    selected_vendor_quote: Mapped["VendorQuote | None"] = relationship(
+        "VendorQuote",
     )
     issuer: Mapped["User"] = relationship(
         "User",

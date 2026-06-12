@@ -12,22 +12,10 @@
 }
 
 /* Status colors */
-.status-badge[data-status="DRAFT"] {
-  background: rgba(90, 101, 119, 0.1);
-  color: #5a6577;
-  border: 1px solid rgba(90, 101, 119, 0.3);
-}
-
 .status-badge[data-status="SUBMITTED"] {
   background: rgba(30, 58, 95, 0.1);
   color: #1e3a5f;
   border: 1px solid rgba(30, 58, 95, 0.3);
-}
-
-.status-badge[data-status="UNDER_REVIEW"] {
-  background: rgba(151, 90, 22, 0.1);
-  color: #975a16;
-  border: 1px solid rgba(151, 90, 22, 0.3);
 }
 
 .status-badge[data-status="APPROVED"] {

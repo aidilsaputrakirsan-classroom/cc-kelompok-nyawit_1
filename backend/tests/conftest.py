@@ -3,6 +3,7 @@ Konfigurasi test untuk SiCure — setup async database test.
 Menggunakan PostgreSQL test database terpisah atau SQLite untuk testing cepat.
 """
 import asyncio
+import json
 import pytest
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
@@ -12,6 +13,65 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db, engine as original_engine
 from app.main import app
+
+
+# ── Ambang nilai PR yang menentukan jumlah minimal vendor (lihat config) ──
+QUOTE_THRESHOLD = 5_000_000.0
+
+
+def pr_multipart(title, justification, items, vendors=None):
+    """Bangun payload multipart untuk POST /api/v1/requisitions/ (kontrak baru).
+
+    Mengembalikan tuple ``(data, files)`` yang siap dipakai:
+        data, files = pr_multipart(...)
+        await client.post(url, data=data, files=files, headers=headers)
+
+    Argumen:
+        title (str), justification (str | None)
+        items (list[dict]): tiap item {item_name, quantity, unit_of_measure,
+            estimated_unit_price}
+        vendors (list[dict] | None): tiap vendor {vendor_name, vendor_contact,
+            quoted_price, survey_date, is_recommended}. Jika None, helper membuat
+            jumlah vendor minimal sesuai total PR (3 bila total > 5.000.000,
+            selain itu 1), vendor pertama is_recommended=true, quoted_price tiap
+            vendor = total PR (atau nilai positif bila total 0), survey_date
+            "2026-01-01".
+    """
+    total = sum(
+        round(i["quantity"] * i["estimated_unit_price"], 2) for i in items
+    )
+
+    if vendors is None:
+        count = 3 if total > QUOTE_THRESHOLD else 1
+        price = total if total > 0 else 1000
+        vendors = []
+        for idx in range(count):
+            vendors.append(
+                {
+                    "vendor_name": f"Vendor {idx + 1}",
+                    "vendor_contact": f"0812000000{idx:02d}",
+                    "quoted_price": price,
+                    "survey_date": "2026-01-01",
+                    "is_recommended": idx == 0,
+                }
+            )
+
+    data = {
+        "title": title,
+        "justification": justification if justification is not None else "",
+        "items_json": json.dumps(items),
+        "vendor_quotes_json": json.dumps(vendors),
+    }
+
+    files = [
+        (
+            f"vendor_quotes[{idx}].survey_evidence",
+            ("bukti.jpg", b"\xff\xd8\xff", "image/jpeg"),
+        )
+        for idx in range(len(vendors))
+    ]
+
+    return data, files
 
 
 # Opsi 1: Gunakan SQLite untuk testing cepat (recommended untuk CI)

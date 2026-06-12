@@ -48,7 +48,7 @@ def upgrade() -> None:
         sa.Column("requester_id", sa.Integer(), nullable=False),
         sa.Column("title", sa.String(255), nullable=False),
         sa.Column("justification", sa.Text(), nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="DRAFT"),
+        sa.Column("status", sa.String(20), nullable=False, server_default="SUBMITTED"),
         sa.Column("total_amount", sa.Numeric(precision=18, scale=2), nullable=False, server_default="0"),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),

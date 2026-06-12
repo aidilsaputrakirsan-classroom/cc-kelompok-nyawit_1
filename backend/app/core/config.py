@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE_MB: int = 5  # per-file limit in megabytes
 
+    # ── Vendor Quote ──────────────────────────────────────────────
+    # Ambang nilai PR (Rp) yang menentukan jumlah minimal penawaran vendor.
+    QUOTE_THRESHOLD: float = 5_000_000.0
+    MIN_VENDOR_ABOVE_THRESHOLD: int = 3      # total PR > ambang → minimal 3 vendor
+    MIN_VENDOR_AT_OR_BELOW_THRESHOLD: int = 1  # total PR ≤ ambang → minimal 1 vendor
+
     # ── Environment ───────────────────────────────────────────────
     APP_ENV: str = "development"  # "development" | "production"
     ENVIRONMENT: str = ""  # fallback dari DeployCC

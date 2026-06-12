@@ -16,7 +16,7 @@ from app.models.grn_document import GRNDocument
 from app.models.purchase_order import PurchaseOrder
 from app.models.user import User
 from app.schemas.common import APIResponse
-from app.schemas.grn_document import GRNOut, GRNVerify
+from app.schemas.grn_document import GRNOut, GRNReturn, GRNVerify
 
 router = APIRouter(prefix="/api/v1/grn/admin", tags=["grn-admin"])
 
@@ -106,4 +106,67 @@ async def verify_grn(
         success=True,
         data=GRNOut.model_validate(grn).model_dump(mode="json"),
         message=f"GRN berhasil {label}",
+    )
+
+
+# ── PUT /{grn_id}/return ──────────────────────────────────────────
+@router.put(
+    "/{grn_id}/return",
+    summary="Kembalikan dokumen GRN ke requester untuk diperbaiki",
+)
+async def return_grn(
+    grn_id: int,
+    body: GRNReturn,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(["admin"])),
+):
+    """
+    Admin mengembalikan dokumen GRN yang tidak sesuai ke requester.
+    - Hanya GRN yang PR-nya berstatus DOC_SUBMITTED yang bisa dikembalikan.
+    - Status PR dikembalikan ke PO_ISSUED sehingga requester bisa upload ulang.
+    - verification_note diisi sebagai alasan pengembalian (terlihat oleh requester).
+    - Record GRN dipertahankan; file akan ditimpa saat requester submit ulang.
+    """
+    result = await db.execute(
+        select(GRNDocument)
+        .options(
+            selectinload(GRNDocument.purchase_order)
+            .selectinload(PurchaseOrder.purchase_requisition)
+        )
+        .where(GRNDocument.id == grn_id)
+    )
+    grn = result.scalar_one_or_none()
+
+    if grn is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="GRN Document tidak ditemukan",
+        )
+
+    po = grn.purchase_order
+    if po is None or po.purchase_requisition is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Data inkonsisten: PO/PR tidak ditemukan untuk GRN ini",
+        )
+
+    pr = po.purchase_requisition
+
+    if pr.status != PRStatus.DOC_SUBMITTED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"GRN tidak bisa dikembalikan. Status PR saat ini: {pr.status}. "
+                   f"Hanya GRN dengan status DOC_SUBMITTED yang bisa dikembalikan.",
+        )
+
+    grn.verification_note = body.verification_note
+    pr.status = PRStatus.PO_ISSUED
+
+    await db.commit()
+    await db.refresh(grn)
+
+    return APIResponse(
+        success=True,
+        data=GRNOut.model_validate(grn).model_dump(mode="json"),
+        message="Dokumen GRN dikembalikan ke requester untuk diperbaiki",
     )

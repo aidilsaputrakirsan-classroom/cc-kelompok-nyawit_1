@@ -9,7 +9,6 @@ import type { PurchaseRequisition, PRStatus } from "../../types";
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "Semua Status" },
   { value: "SUBMITTED", label: "Submitted" },
-  { value: "UNDER_REVIEW", label: "Under Review" },
   { value: "APPROVED", label: "Approved" },
   { value: "REJECTED", label: "Rejected" },
   { value: "PO_ISSUED", label: "PO Issued" },
@@ -22,7 +21,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 function getActions(pr: PurchaseRequisition) {
   const actions: { label: string; to: string; variant: string }[] = [];
 
-  if (pr.status === "SUBMITTED" || pr.status === "UNDER_REVIEW") {
+  if (pr.status === "SUBMITTED") {
     actions.push({
       label: "Review",
       to: `/admin/pr/${pr.id}`,
@@ -78,9 +77,7 @@ export default function AdminDashboard() {
   // Calculate stats
   const stats = {
     total: adminPrs.length,
-    pending: adminPrs.filter((pr) => 
-      ["SUBMITTED", "UNDER_REVIEW"].includes(pr.status)
-    ).length,
+    pending: adminPrs.filter((pr) => pr.status === "SUBMITTED").length,
     approved: adminPrs.filter((pr) => pr.status === "APPROVED").length,
     completed: adminPrs.filter((pr) => 
       ["VERIFIED", "CLOSED"].includes(pr.status)

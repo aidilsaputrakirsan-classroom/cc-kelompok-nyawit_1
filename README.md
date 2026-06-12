@@ -1,15 +1,78 @@
-# ☁️ SiCure — Sistem Information Procurement
+# ☁️ SiCure — Sistem Informasi Procurement
 
 ![CI Pipeline](https://github.com/aidilsaputrakirsan-classroom/cc-kelompok-nyawit_1/actions/workflows/ci.yml/badge.svg)
 
-SiCure (Sistem Information Procurement) merupakan aplikasi berbasis cloud yang dirancang untuk membantu organisasi dalam mengelola proses pengadaan barang/jasa secara digital, terstruktur, dan transparan.
+SiCure (Sistem Informasi Procurement) adalah aplikasi berbasis cloud untuk mengelola
+proses pengadaan barang/jasa secara digital, terstruktur, dan transparan — mulai dari
+pengajuan permintaan, perbandingan penawaran vendor, persetujuan, penerbitan PO,
+hingga verifikasi penerimaan barang.
 
-Aplikasi ini mendukung pencatatan serta monitoring proses procurement mulai dari pengajuan hingga verifikasi akhir dalam satu platform terintegrasi. Dengan sistem ini, organisasi seperti himpunan mahasiswa, UKM, maupun komunitas dapat meningkatkan efisiensi administrasi, mengurangi kesalahan pencatatan, serta memastikan transparansi dalam pengelolaan pengadaan.
-
-Melalui pendekatan berbasis cloud, sistem dapat diakses kapan saja dan di mana saja oleh pihak yang berwenang, sehingga mendukung pengambilan keputusan yang lebih cepat dan akurat.
-
-**Backend:** FastAPI + SQLAlchemy (async) + PostgreSQL  
+**Backend:** FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL
 **Frontend:** React 19 + TypeScript + Vite
+**Infra:** Docker Compose (lokal) · Railway (produksi)
+
+---
+
+## ⚡ Quick Start (Docker — cara tercepat)
+
+Hanya butuh **Docker** + **Docker Compose**. Tidak perlu install Python/Node/PostgreSQL.
+
+```bash
+# 1. Clone repo
+git clone https://github.com/aidilsaputrakirsan-classroom/cc-kelompok-nyawit_1.git
+cd cc-kelompok-nyawit_1
+
+# 2. Siapkan environment (nilai default sudah cukup untuk lokal)
+cp .env.example .env
+
+# 3. Seed data demo HANYA untuk first run, lalu jalankan semuanya
+SEED_ON_STARTUP=true docker compose up -d --build
+
+# (jalankan berikutnya cukup: docker compose up -d)
+```
+
+Atau pakai **Makefile** (lebih singkat):
+
+```bash
+make up      # build + start backend, frontend, postgres
+make seed    # isi data demo (sekali saja saat pertama)
+make logs    # lihat log
+make down    # stop
+```
+
+Setelah container jalan:
+
+| Layanan | URL |
+|---------|-----|
+| 🖥️ Frontend (web) | http://localhost:5173 |
+| 🔌 Backend API | http://localhost:8000 |
+| 📚 API Docs (Swagger) | http://localhost:8000/docs |
+| ❤️ Health check | http://localhost:8000/api/v1/health |
+
+Login dengan akun demo di bawah, dan aplikasi siap dipakai. Selesai. 🎉
+
+> **Catatan seeding:** `SEED_ON_STARTUP=true` cukup dijalankan **sekali** untuk membuat
+> akun demo + contoh PR di semua tahap. Untuk run berikutnya gunakan `docker compose up -d`
+> biasa agar data tidak di-seed ulang. Migrasi database (`alembic upgrade head`) selalu
+> berjalan otomatis di setiap startup.
+
+---
+
+## 🔐 Akun Demo
+
+Tersedia setelah seeding (`make seed` atau `SEED_ON_STARTUP=true`):
+
+| Email | Password | Role | Keterangan |
+|-------|----------|------|------------|
+| `admin@sicure.com` | `admin1234` | Admin | Review PR, terbitkan PO, verifikasi GRN |
+| `requester1@sicure.com` | `requester1234` | Requester | Andi Kurniawan |
+| `requester2@sicure.com` | `requester1234` | Requester | Dewi Lestari |
+| `requester3@sicure.com` | `requester1234` | Requester | Rizky Pratama |
+
+Seeder juga membuat **13 contoh Purchase Requisition** yang tersebar di seluruh tahap
+status (SUBMITTED, APPROVED, REJECTED, PO_ISSUED, DOC_SUBMITTED, VERIFIED, CLOSED),
+lengkap dengan penawaran vendor — sehingga demo bisa langsung menelusuri setiap alur
+tanpa input manual.
 
 ---
 
@@ -25,448 +88,196 @@ Melalui pendekatan berbasis cloud, sistem dapat diakses kapan saja dan di mana s
 
 ---
 
-## 📌 Fitur Utama Sistem
+## 📌 Fitur Utama
 
-- **Procurement Management**: Pengajuan hingga persetujuan pengadaan
-- **Purchase Order (PO)**: Penerbitan dokumen resmi pembelian
-- **GRN (Goods Receipt Note)**: Upload bukti penerimaan barang
-- **Verification System**: Validasi dokumen oleh admin
-- **Role-Based Access Control**: Hak akses berdasarkan role (Admin & Requester)
-- **Audit & Tracking**: Monitoring status setiap proses pengadaan
-
----
-
-## Daftar Isi
-
-1. [Prasyarat](#prasyarat)
-2. [Setup Backend (venv, requirements, alembic)](#setup-backend)
-3. [Setup Frontend](#setup-frontend)
-4. [Menjalankan Backend & Frontend Bersamaan](#menjalankan-backend--frontend-bersamaan)
-5. [Credential Demo Login](#credential-demo-login)
-6. [Alur Procurement](#alur-procurement)
-7. [Struktur Project](#struktur-project)
-8. [API Endpoints](#api-endpoints)
-9. [Scripts](#scripts)
-10. [Catatan Keamanan](#catatan-keamanan)
-11. [Next Steps](#next-steps)
+- **Purchase Requisition (PR)** — pengajuan permintaan pengadaan beserta line items.
+- **Perbandingan Penawaran Vendor (3-quotation)** — setiap PR menyertakan penawaran
+  vendor + bukti survei. Jumlah vendor minimal mengikuti ambang nilai PR.
+- **Approval + Penerbitan PO** — admin menyetujui PR dan menerbitkan Purchase Order
+  untuk vendor terpilih dalam satu langkah.
+- **GRN (Goods Receipt Note)** — requester mengunggah bukti penerimaan barang.
+- **Verifikasi & Penutupan** — admin memverifikasi GRN lalu menutup pengadaan.
+- **Role-Based Access Control** — hak akses Admin vs Requester.
+- **JWT Auth** — access + refresh token, dengan logout (token revocation).
+- **Audit & Tracking** — pemantauan status di setiap tahap.
 
 ---
 
-## Prasyarat
+## 🔄 Alur Procurement
 
-| Tool       | Versi   | Keterangan                          |
-|------------|---------|-------------------------------------|
-| Python     | 3.11+   | Backend runtime                     |
-| Node.js    | 20+     | Frontend tooling                    |
-| PostgreSQL | 16+     | Database utama                      |
-| Git        | 2.x     | Version control                     |
+```
+┌────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│ 1. PR +    │──>│ 2. Approve   │──>│ 3. GRN        │──>│ 4. Verify     │
+│ Vendor     │   │  + Issue PO  │   │  Submission   │   │  & Close      │
+│ Quotes     │   │              │   │               │   │               │
+└────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+  Requester        Admin              Requester          Admin
 
-Install sesuai OS masing-masing:
+Status: SUBMITTED ─> PO_ISSUED ─> DOC_SUBMITTED ─> VERIFIED ─> CLOSED
+                └─> REJECTED
+```
 
-- **Python:** https://www.python.org/downloads/ atau via package manager (`apt`, `brew`, `dnf`, dll.)
-- **Node.js:** https://nodejs.org/ atau via [nvm](https://github.com/nvm-sh/nvm)
-- **PostgreSQL:** https://www.postgresql.org/download/
+1. **PR + Vendor Quotes (Requester).** Requester membuat PR (judul, justifikasi,
+   line items) dan melampirkan penawaran vendor beserta bukti survei. Total dihitung
+   otomatis; status awal `SUBMITTED`.
+2. **Approve + Issue PO (Admin).** Admin me-review PR. Jika **APPROVE**, sistem langsung
+   menerbitkan PO untuk vendor terpilih (default vendor rekomendasi, bisa di-override)
+   dan status menjadi `PO_ISSUED`. Jika **REJECT**, status `REJECTED` (requester bisa
+   merevisi & mengajukan ulang).
+3. **GRN Submission (Requester).** Setelah barang diterima, requester mengunggah
+   *commercial invoice* + foto barang. Status `DOC_SUBMITTED`.
+4. **Verify & Close (Admin).** Admin memverifikasi (`VERIFIED`) lalu menutup pengadaan
+   (`CLOSED`). Admin juga bisa mengembalikan GRN (`return`) ke requester untuk diperbaiki.
+
+### Aturan Penawaran Vendor
+
+| Nilai total PR | Minimal vendor | Rekomendasi |
+|----------------|----------------|-------------|
+| ≤ Rp5.000.000 (ambang) | 1 vendor | tepat 1 ditandai rekomendasi |
+| > Rp5.000.000 | 3 vendor | tepat 1 ditandai rekomendasi |
+
+- Ambang diatur via `QUOTE_THRESHOLD` (default `5000000`).
+- Setiap vendor wajib menyertakan berkas bukti survei (JPG/PNG/PDF, maks 5MB).
+- `allocated_budget` PO = harga vendor terpilih (bukan estimasi total PR).
+
+---
+
+## 🧰 Perintah Docker yang Sering Dipakai
 
 ```bash
-# Verifikasi instalasi
-python3 --version   # Python 3.11.x atau lebih baru
-node --version      # v20.x.x atau lebih baru
-psql --version      # psql (PostgreSQL) 16.x atau lebih baru
+docker compose up -d              # start (pakai image yang ada)
+docker compose up -d --build      # start + rebuild image
+docker compose logs -f backend    # log backend saja
+docker compose exec backend python -m app.seed   # seed manual (idempotent)
+docker compose down               # stop & hapus container
+docker compose down -v            # stop + hapus volume (DATA DB HILANG)
+```
+
+Re-seed data demo dari awal (menghapus data demo lama lalu membuat ulang):
+
+```bash
+docker compose exec -e FORCE_SEED=true backend python -m app.seed
 ```
 
 ---
 
-## Setup Backend
+## 🛠️ Setup Manual (tanpa Docker)
+
+Alternatif bila ingin menjalankan langsung di host. Butuh **Python 3.11+**,
+**Node.js 20+**, dan **PostgreSQL 16+**.
+
+### Backend
 
 ```bash
-# 1. Masuk ke direktori backend
 cd backend
-
-# 2. Buat virtual environment
 python3 -m venv venv
-
-# 3. Aktifkan virtual environment
-source venv/bin/activate         # Linux/macOS
-# venv\Scripts\activate          # Windows
-
-# 4. Install dependencies
+source venv/bin/activate            # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 5. Salin dan edit konfigurasi environment
-cp .env.local .env
-# Edit .env sesuai konfigurasi database lokal Anda
+cp .env.example .env                # lalu sesuaikan DATABASE_URL & JWT secrets
+createdb sicure_db                  # buat database PostgreSQL
 
-# 6. Buat database PostgreSQL
-createdb sicure_db
-# Atau via psql:
-# psql -c "CREATE DATABASE sicure_db;"
+alembic upgrade head                # migrasi
+python -m app.seed                  # seed user + data demo
 
-# 7. Jalankan migrasi database (Alembic)
-alembic upgrade head
-
-# 8. Jalankan seeder (buat user demo)
-python -m app.seed
-
-# Kembali ke root project
-cd ..
-```
-
-### Alembic Commands
-
-```bash
-# Jalankan semua migrasi
-alembic upgrade head
-
-# Rollback 1 step
-alembic downgrade -1
-
-# Buat migrasi baru (autogenerate)
-alembic revision --autogenerate -m "deskripsi perubahan"
-
-# Lihat status migrasi
-alembic current
-alembic history
-```
-
----
-
-## Setup Frontend
-
-```bash
-# 1. Masuk ke direktori frontend
-cd frontend
-
-# 2. Install dependencies
-npm install
-
-# 3. Salin dan edit konfigurasi environment
-cp .env.local .env
-# Default: VITE_API_BASE_URL=http://localhost:8000/api/v1
-
-# Kembali ke root project
-cd ..
-```
-
----
-
-## Menjalankan Backend & Frontend Bersamaan
-
-**Terminal 1 — Backend:**
-```bash
-cd backend
-source venv/bin/activate
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Terminal 2 — Frontend:**
+`DATABASE_URL` untuk koneksi lokal, contoh:
+`postgresql+asyncpg://postgres:postgres@localhost:5432/sicure_db`
+
+### Frontend
+
 ```bash
 cd frontend
-npm run dev
-```
----
-
-## Credential Demo Login
-
-Setelah menjalankan `npm run db:seed` atau `python -m app.seed`, user berikut tersedia:
-
-| Email                    | Password         | Role        | Nama            |
-|--------------------------|------------------|-------------|-----------------|
-| `admin@sicure.com`       | `admin1234`      | Admin       | Procurement Admin |
-| `requester1@sicure.com`  | `requester1234`  | Requester   | Budi Santoso    |
-| `requester2@sicure.com`  | `requester1234`  | Requester   | Siti Rahayu     |
-
-> **Admin** dapat me-review PR, menerbitkan PO, dan memverifikasi GRN.  
-> **Requester** dapat membuat PR, meng-upload dokumen GRN, dan melihat status pengadaan.
-
----
-
-## Alur Procurement
-
-SiCure mengimplementasikan alur pengadaan 5 tahap:
-
-```
-┌──────────┐    ┌──────────┐    ┌───────────┐    ┌──────────────┐    ┌──────────────┐
-│  1. PR    │───>│ 2. Appro-│───>│ 3. PO     │───>│ 4. GRN       │───>│ 5. Verifi-   │
-│  Creation │    │    val   │    │  Issuance  │    │  Submission   │    │    cation    │
-└──────────┘    └──────────┘    └───────────┘    └──────────────┘    └──────────────┘
-  Requester       Admin           Admin            Requester           Admin
-```
-
-### 1. Purchase Requisition (PR) — Pembuatan Permintaan
-
-- **Aktor:** Requester
-- **Aksi:** Requester membuat PR baru dengan judul, justifikasi, dan daftar line items (nama barang, jumlah, satuan, harga estimasi).
-- **Status:** `SUBMITTED`
-- **Sistem:** Otomatis menghitung subtotal per item dan total keseluruhan. Nomor PR di-generate otomatis (format: `PR-YYYYMMDD-HHMMSSff`).
-
-### 2. Approval — Persetujuan
-
-- **Aktor:** Procurement Admin
-- **Aksi:** Admin me-review PR yang masuk, kemudian menyetujui (Approve) atau menolak (Reject) dengan catatan.
-- **Status:** `SUBMITTED` → `APPROVED` atau `REJECTED`
-- **Validasi:** Hanya PR dengan status `SUBMITTED` yang bisa di-review.
-
-### 3. PO Issuance — Penerbitan Purchase Order
-
-- **Aktor:** Procurement Admin
-- **Aksi:** Setelah PR disetujui, admin menerbitkan Purchase Order (PO) dengan alokasi budget.
-- **Status:** `APPROVED` → `PO_ISSUED`
-- **Sistem:** Nomor PO di-generate otomatis (format: `PO-YYYYMMDD-HHMMSSff`). Satu PR hanya bisa memiliki satu PO.
-
-### 4. GRN Submission — Penyerahan Bukti Penerimaan Barang
-
-- **Aktor:** Requester
-- **Aksi:** Setelah barang diterima, requester meng-upload dokumen bukti:
-  - Commercial Invoice (faktur komersial)
-  - Foto barang yang diterima
-- **Status:** `PO_ISSUED` → `DOC_SUBMITTED`
-- **Validasi:** File harus berformat JPG, PNG, atau PDF. Maksimum 5MB per file.
-
-### 5. Verification — Verifikasi & Penutupan
-
-- **Aktor:** Procurement Admin
-- **Aksi:** Admin memverifikasi dokumen GRN yang di-submit, kemudian:
-  - **Verify:** Menandai dokumen sudah diverifikasi (`DOC_SUBMITTED` → `VERIFIED`)
-  - **Close:** Menutup proses pengadaan (`VERIFIED` → `CLOSED`)
-- **Catatan:** Admin dapat menambahkan catatan verifikasi.
-
-### Diagram Status Lengkap
-
-```
-DRAFT ──> SUBMITTED ──> APPROVED ──> PO_ISSUED ──> DOC_SUBMITTED ──> VERIFIED ──> CLOSED
-                   └──> REJECTED
+npm install
+cp .env.example .env                # default: VITE_API_BASE_URL=http://localhost:8000/api/v1
+npm run dev                         # http://localhost:5173
 ```
 
 ---
 
-## Struktur Project
+## 🔌 API Endpoints
 
-```
-sicure/
-├── README.md                    # Dokumentasi utama
-├── docker-compose.yml           # Docker Compose (dev: backend + frontend + postgres)
-├── docker-compose.prod.yml      # Production overrides
-├── Makefile                     # Helper command (up/down/logs/seed)
-├── .env.example                 # Template environment variables
-├── .dockerignore                # Docker ignore rules
-│
-├── docker/                      # Referensi konfigurasi Docker tambahan
-│   ├── README.md
-│   ├── ARCHITECTURE.md
-│   ├── compose/
-│   ├── dockerfiles/
-│   └── scripts/
-│
-├── docs/                        # Dokumentasi (deployment, testing, dll.)
-│   └── railway-deployment.md    # Panduan deploy ke Railway
-│
-├── backend/
-│   ├── Dockerfile               # Backend Docker image
-│   ├── .dockerignore            # Backend Docker ignore
-│   ├── .env.local               # Contoh konfigurasi environment
-│   ├── .env.example             # Template environment
-│   ├── requirements.txt         # Python dependencies
-│   ├── alembic.ini              # Alembic configuration
-│   ├── uploads/                 # File upload storage
-│   ├── tests/                   # Pytest test suite
-│   │   └── test_health.py
-│   ├── alembic/
-│   │   ├── env.py               # Async migration runner
-│   │   └── versions/            # Migration files
-│   └── app/
-│       ├── main.py              # FastAPI app + middleware
-│       ├── seed.py              # Database seeder
-│       ├── core/
-│       │   ├── config.py        # Pydantic Settings (env vars)
-│       │   ├── security.py      # Password hashing + JWT
-│       │   └── deps.py          # Auth dependencies + role checker
-│       ├── db/
-│       │   ├── base.py          # SQLAlchemy DeclarativeBase
-│       │   └── session.py       # Async engine + session factory
-│       ├── models/
-│       │   ├── enums.py         # UserRole, PRStatus enums
-│       │   ├── user.py
-│       │   ├── purchase_requisition.py
-│       │   ├── pr_line_item.py
-│       │   ├── purchase_order.py
-│       │   └── grn_document.py
-│       ├── schemas/             # Pydantic request/response schemas
-│       └── routers/
-│           ├── auth.py          # Login, register, me
-│           ├── requisitions.py  # Requester PR endpoints
-│           ├── requisitions_admin.py  # Admin PR review
-│           ├── purchase_orders.py     # PO issuance & listing
-│           ├── grn.py           # GRN document upload
-│           └── grn_admin.py     # GRN verification
-│
-├── frontend/
-│   ├── Dockerfile               # Frontend production image (Nginx)
-│   ├── Dockerfile.dev           # Frontend development image
-│   ├── nginx.conf               # Nginx configuration
-│   ├── .dockerignore            # Frontend Docker ignore
-│   ├── .env.local               # Contoh konfigurasi environment
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── index.html
-│   └── src/
-│       ├── main.tsx             # Entry point + ErrorBoundary
-│       ├── App.tsx              # Router + providers
-│       ├── index.css            # All styles (no CSS framework)
-│       ├── types/index.ts       # TypeScript interfaces
-│       ├── services/
-│       │   ├── api.ts           # Axios instance + interceptors
-│       │   └── auth.ts          # Login helper
-│       ├── contexts/
-│       │   ├── AuthContext.tsx   # Auth state management
-│       │   ├── ToastContext.tsx  # Toast notifications
-│       │   └── ProcurementContext.tsx  # PR/PO data caching
-│       ├── components/
-│       │   ├── Layout.tsx       # Navbar + page wrapper
-│       │   ├── ProtectedRoute.tsx  # Auth guard + role check
-│       │   ├── StatusBadge.tsx  # Status pill component
-│       │   └── ErrorBoundary.tsx  # Error fallback UI
-│       └── pages/
-│           ├── Login.tsx
-│           ├── requester/
-│           │   ├── Dashboard.tsx  # List own PRs
-│           │   ├── PRNew.tsx      # Create new PR
-│           │   └── PRDetail.tsx   # PR detail + GRN upload
-│           └── admin/
-│               ├── Dashboard.tsx  # All PRs + status filter
-│               ├── PRDetail.tsx   # Review/Approve/Reject/Issue PO/Verify
-│               └── PODetail.tsx   # PO detail view
+Base URL: `http://localhost:8000/api/v1` · Dokumentasi interaktif: `/docs`
+
+### Auth
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/auth/register` | Admin | Buat user baru (role apa pun) |
+| POST | `/auth/register-requester` | Public | Registrasi mandiri sebagai requester |
+| POST | `/auth/login` | Public | Login → access + refresh token |
+| POST | `/auth/refresh` | Public | Tukar refresh token (rotation) |
+| POST | `/auth/logout` | Auth | Revoke access token |
+| GET | `/auth/me` | Auth | Profil user saat ini |
+
+### Requisitions (Requester)
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/requisitions/` | Auth | Buat PR + vendor quotes (multipart) |
+| GET | `/requisitions/` | Auth | List PR milik sendiri (paginasi + filter) |
+| GET | `/requisitions/{id}` | Auth | Detail PR milik sendiri |
+| PUT | `/requisitions/{id}` | Auth | Edit PR `SUBMITTED`/`REJECTED` (resubmit) |
+| DELETE | `/requisitions/{id}` | Auth | Batalkan PR `SUBMITTED`/`REJECTED` |
+| GET | `/requisitions/categories` | Auth | Kategori unik dari nama item |
+
+### Requisitions (Admin)
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| GET | `/requisitions/admin/` | Admin | List semua PR (paginasi + filter) |
+| GET | `/requisitions/admin/{id}` | Admin | Detail PR mana pun |
+| PUT | `/requisitions/admin/{id}/review` | Admin | APPROVE (+ terbitkan PO) / REJECT |
+
+### Purchase Orders
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| GET | `/purchase-orders/` | Admin | List semua PO |
+| GET | `/purchase-orders/{po_id}` | Admin | Detail PO |
+| GET | `/purchase-orders/by-pr/{pr_id}` | Admin | PO berdasarkan PR |
+| GET | `/purchase-orders/{pr_id}/my-po` | Auth | PO untuk PR milik sendiri |
+
+### GRN
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/grn/{po_id}/submit-doc` | Auth | Upload invoice + foto barang |
+| GET | `/grn/{grn_id}` | Auth | Detail GRN |
+| GET | `/grn/by-po/{po_id}` | Auth | GRN berdasarkan PO |
+| PUT | `/grn/admin/{grn_id}/verify` | Admin | Verifikasi (VERIFIED) / tutup (CLOSED) |
+| PUT | `/grn/admin/{grn_id}/return` | Admin | Kembalikan GRN untuk diperbaiki |
+
+### Lain-lain
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| GET | `/health` & `/api/v1/health` | Public | Health check |
+
+---
+
+## 🧪 Testing
+
+```bash
+# Backend (pytest + coverage + property-based tests)
+cd backend && pytest
+
+# Atau di dalam container
+docker compose exec backend pytest
+
+# Frontend (vitest)
+cd frontend && npm test
 ```
 
----
-
-## ERD
-![ERD Diagram](docs/Images/ERDCC.png)
-
-## API Endpoints
-
-Base URL: `http://localhost:8000/api/v1`
-
-| Method | Endpoint                              | Auth     | Deskripsi                        |
-|--------|---------------------------------------|----------|----------------------------------|
-| POST   | `/auth/register`                      | Admin    | Buat user baru                   |
-| POST   | `/auth/login`                         | Public   | Login, return JWT                |
-| GET    | `/auth/me`                            | Auth     | Profil user saat ini             |
-| POST   | `/requisitions/`                      | Auth     | Buat PR baru                     |
-| GET    | `/requisitions/`                      | Auth     | List PR milik sendiri            |
-| GET    | `/requisitions/{id}`                  | Auth     | Detail PR milik sendiri          |
-| GET    | `/requisitions/admin/`                | Admin    | List semua PR                    |
-| PUT    | `/requisitions/admin/{id}/review`     | Admin    | Approve/Reject PR                |
-| POST   | `/purchase-orders/{pr_id}/issue`      | Admin    | Terbitkan PO                     |
-| GET    | `/purchase-orders/{pr_id}/my-po`      | Auth     | Lihat PO untuk PR sendiri        |
-| GET    | `/purchase-orders/`                   | Admin    | List semua PO                    |
-| POST   | `/grn/{po_id}/submit-doc`             | Auth     | Upload dokumen GRN               |
-| GET    | `/grn/{grn_id}`                       | Auth     | Detail GRN                       |
-| PUT    | `/grn/admin/{grn_id}/verify`          | Admin    | Verifikasi/Close GRN             |
-| GET    | `/health`                             | Public   | Health check                     |
-
-Dokumentasi interaktif: `http://localhost:8000/docs` (Swagger UI)
+CI (`.github/workflows/ci.yml`) menjalankan test backend, test + build frontend,
+dan build image Docker pada setiap push/PR ke `main`.
 
 ---
 
-## Scripts
+## 🚀 Deployment (Railway)
 
-Aplikasi dijalankan via Docker Compose (Makefile) atau manual per service.
+Aplikasi di-deploy sebagai **monolith** ke [Railway](https://railway.app):
+1 backend service + 1 frontend service + 1 PostgreSQL dalam satu project.
+Auto-deploy setiap push/merge ke `main`.
 
-**Via Makefile (dari root project):**
-
-| Perintah     | Deskripsi                                          |
-|--------------|----------------------------------------------------|
-| `make up`    | Start backend + frontend + postgres (Docker)       |
-| `make down`  | Stop & hapus container                             |
-| `make logs`  | Stream logs semua service                          |
-| `make seed`  | Seed database (user demo)                          |
-| `make ps`    | Status container                                   |
-
-**Manual (tanpa Docker):**
-
-| Komponen | Perintah                                                        |
-|----------|-----------------------------------------------------------------|
-| Backend  | `cd backend && uvicorn app.main:app --reload --port 8000`       |
-| Frontend | `cd frontend && npm run dev`                                    |
-| Migrasi  | `cd backend && alembic upgrade head`                            |
-| Seed     | `cd backend && python -m app.seed`                              |
-| Test     | `cd backend && pytest`                                          |
-
----
-
-## Catatan Keamanan
-
-1. **JWT Secret:** Ganti `JWT_SECRET` di `.env` dengan string random yang kuat sebelum deploy ke production. Generate dengan:
-   ```bash
-   python -c "import secrets; print(secrets.token_urlsafe(64))"
-   ```
-
-2. **CORS:** Di production, set `ALLOWED_ORIGINS` hanya ke domain frontend yang valid. Jangan gunakan wildcard `*`.
-
-3. **APP_ENV:** Set `APP_ENV=production` untuk mengaktifkan:
-   - Pembatasan ukuran request body (Content-Length enforcement)
-   - CORS header yang lebih ketat (hanya method & header yang diperlukan)
-
-4. **File Upload:**
-   - Hanya menerima file JPG, PNG, dan PDF
-   - Maksimum 5MB per file (konfigurasi via `MAX_UPLOAD_SIZE_MB`)
-   - Filename di-sanitize dan diberi UUID prefix untuk mencegah path traversal
-   - File disimpan di filesystem lokal (`./uploads/`)
-
-5. **Password:** Menggunakan bcrypt hashing. Password tidak pernah disimpan dalam plaintext.
-
-6. **Database:** Gunakan password yang kuat untuk PostgreSQL di production. Jangan gunakan user `postgres` tanpa password.
-
----
-
-## Next Steps
-
-Fitur-fitur yang direncanakan untuk pengembangan selanjutnya:
-
-### Email Notification
-- Notifikasi email otomatis saat PR di-approve/reject
-- Notifikasi ke admin saat ada PR baru masuk
-- Reminder untuk PR yang belum di-review
-
-### 3-Way Match Automation
-- Otomatis membandingkan PR, PO, dan GRN (invoice)
-- Deteksi ketidaksesuaian harga, jumlah, atau item
-- Dashboard match score untuk setiap transaksi
-
-### Audit Trail Export
-- Log semua aktivitas user (create, approve, reject, upload, verify)
-- Export audit trail ke CSV/PDF
-- Filter berdasarkan tanggal, user, atau tipe aksi
-
-### Fitur Tambahan
-- Dashboard analytics (total PR, PO, spending per periode)
-- Multi-level approval workflow
-- Vendor management module
-- Budget tracking & alerts
-- Document versioning untuk GRN
-- Role-based access control yang lebih granular
-- API rate limiting
-- File storage migration ke cloud (S3/GCS)
-
----
-
-## Tech Stack
-
-| Layer     | Teknologi                                    |
-|-----------|----------------------------------------------|
-| Frontend  | React 19, TypeScript, Vite 8, Axios          |
-| Backend   | FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 |
-| Database  | PostgreSQL 16+ (via asyncpg)                 |
-| Auth      | JWT (python-jose) + bcrypt (passlib)         |
-| Migration | Alembic                                      |
-
----
-
-## 🌐 Deployment (Railway)
-
-Aplikasi ini di-deploy sebagai **monolith** ke [Railway](https://railway.app): 1 backend service + 1 frontend service + 1 PostgreSQL dalam satu project. Deploy otomatis setiap push/merge ke `main` (integrasi GitHub bawaan Railway). CI (`ci.yml`) tetap berjalan untuk test.
-
-Panduan lengkap (langkah dashboard, environment variables, troubleshooting): [docs/railway-deployment.md](docs/railway-deployment.md).
+📖 Panduan lengkap (langkah dashboard, environment variables, troubleshooting):
+**[docs/railway-deployment.md](docs/railway-deployment.md)**
 
 | Service | URL |
 |---------|-----|
@@ -476,13 +287,78 @@ Panduan lengkap (langkah dashboard, environment variables, troubleshooting): [do
 
 ---
 
-## License
+## 🗂️ Struktur Project
+
+```
+cc-kelompok-nyawit_1/
+├── docker-compose.yml            # Orkestrasi: backend + frontend + postgres
+├── docker-compose.override.yml   # Override dev (hot-reload, auto-seed)
+├── docker-compose.prod.yml       # Override produksi
+├── Makefile                      # Shortcut: make up/down/seed/logs
+├── .env.example                  # Template environment (root, untuk Docker)
+│
+├── backend/                      # FastAPI + SQLAlchemy (async)
+│   ├── Dockerfile
+│   ├── alembic/                  # Migrasi database
+│   ├── requirements.txt
+│   └── app/
+│       ├── main.py               # FastAPI app + middleware + health
+│       ├── seed.py               # Seeder data demo (idempotent)
+│       ├── core/                 # config, security (JWT/bcrypt), deps
+│       ├── db/                   # engine + session async
+│       ├── models/               # User, PR, LineItem, VendorQuote, PO, GRN
+│       ├── schemas/              # Pydantic request/response
+│       ├── routers/              # auth, requisitions(+admin), PO, grn(+admin)
+│       ├── services/             # aturan bisnis vendor quote
+│       └── utils/                # validasi & penyimpanan upload
+│
+├── frontend/                     # React 19 + TypeScript + Vite
+│   ├── Dockerfile / Dockerfile.dev
+│   └── src/                      # pages, components, contexts, services
+│
+├── docker/                       # Dokumentasi & script Docker
+└── docs/                         # Dokumentasi proyek (lihat di bawah)
+```
+
+---
+
+## 📚 Dokumentasi
+
+- [Panduan Deploy Railway](docs/railway-deployment.md)
+- [Arsitektur Docker](docs/architecture/docker-architecture.md)
+- [Perbandingan Ukuran Image](docs/architecture/image-comparison.md)
+- [Panduan Testing](docs/testing/testing-guide.md)
+- [Hasil Test API (Swagger)](docs/testing/api-test-result.md)
+- [Hasil UI Testing](docs/testing/ui-test-results.md)
+- [Git Workflow](docs/guides/git-workflow.md)
+
+---
+
+## 🔒 Catatan Keamanan
+
+1. **JWT Secret** — ganti `JWT_SECRET` & `JWT_REFRESH_SECRET` dengan string acak kuat
+   sebelum produksi: `python -c "import secrets; print(secrets.token_urlsafe(64))"`.
+2. **CORS** — di produksi set `ALLOWED_ORIGINS` hanya ke domain frontend (tanpa wildcard).
+3. **APP_ENV=production** — mengaktifkan pembatasan ukuran request body & CORS ketat.
+4. **File Upload** — hanya JPG/PNG/PDF, maks 5MB/file; nama file di-sanitize + UUID prefix.
+5. **Password** — di-hash dengan bcrypt; tidak pernah disimpan plaintext.
+6. **Database** — gunakan kredensial kuat di produksi; jangan pakai user default tanpa password.
+
+---
+
+## 🧱 Tech Stack
+
+| Layer | Teknologi |
+|-------|-----------|
+| Frontend | React 19, TypeScript, Vite, Axios |
+| Backend | FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 |
+| Database | PostgreSQL 16 (asyncpg) |
+| Auth | JWT (python-jose) + bcrypt (passlib) |
+| Migration | Alembic |
+| Infra | Docker Compose, Railway |
+
+---
+
+## 📄 License
 
 Internal project — Universitas.
-
-## 📋 Hasil Pengujian 
-
-- [Dokumentasi hasil testing semua endpoint via Swagger](docs/testing/api-test-result.md)
-- [Dokumentasi UI testing](docs/testing/ui-test-results.md)
-- [Testing Guide](docs/testing/testing-guide.md)
-- [Dokumentasi perbandingan ukuran image](docs/architecture/image-comparison.md)

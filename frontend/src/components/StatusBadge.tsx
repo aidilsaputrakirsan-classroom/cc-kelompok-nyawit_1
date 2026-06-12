@@ -1,9 +1,7 @@
 import type { PRStatus } from "../types";
 
 const STATUS_LABELS: Record<PRStatus, string> = {
-  DRAFT: "Draft",
   SUBMITTED: "Submitted",
-  UNDER_REVIEW: "Under Review",
   APPROVED: "Approved",
   REJECTED: "Rejected",
   PO_ISSUED: "PO Issued",

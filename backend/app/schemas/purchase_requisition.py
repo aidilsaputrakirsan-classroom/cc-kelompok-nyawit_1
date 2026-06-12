@@ -3,11 +3,13 @@ Pydantic schemas for Purchase Requisition operations.
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from app.models.enums import PRStatus
 from app.schemas.pr_line_item import ItemSchema, ItemOut
+from app.schemas.vendor_quote import VendorQuoteOut
 
 
 # ── Request ────────────────────────────────────────────────────────
@@ -28,7 +30,10 @@ class PRUpdate(BaseModel):
 
 
 class PRStatusUpdate(BaseModel):
-    """Payload for admin to transition PR status (approve / reject)."""
+    """Payload for admin to transition PR status (approve / reject).
+
+    Retained for backward compatibility (legacy review/issue flow).
+    """
 
     status: PRStatus
     approval_note: str | None = Field(None, max_length=2000)
@@ -44,6 +49,14 @@ class PRStatusUpdate(BaseModel):
         return self
 
 
+class PRReviewRequest(BaseModel):
+    """Payload for the combined approve+issue-PO / reject review action."""
+
+    action: Literal["APPROVE", "REJECT"]
+    approval_note: str = Field(..., min_length=1, max_length=2000)  # Req 8.2
+    selected_vendor_quote_id: int | None = None  # hanya relevan untuk APPROVE
+
+
 # ── Response ───────────────────────────────────────────────────────
 class PROut(BaseModel):
     id: int
@@ -57,5 +70,6 @@ class PROut(BaseModel):
     updated_at: datetime
     approval_note: str | None
     line_items: list[ItemOut] = []
+    vendor_quotes: list[VendorQuoteOut] = []
 
     model_config = {"from_attributes": True}

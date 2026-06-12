@@ -111,19 +111,10 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchAdminPRDetail = useCallback(async (id: number) => {
-    // Admin uses the same admin list endpoint or detail endpoint
-    // The backend admin router doesn't have a detail endpoint, so we fetch from the list
-    // and find by id, or use the requester detail endpoint with admin privileges
-    // Actually, let's fetch from admin list and find, or call the general detail
-    // Looking at the backend: admin only has list + review. No admin detail endpoint.
-    // We'll fetch from the admin list with all items and find by id
-    const res = await api.get<PaginatedResponse<PurchaseRequisition>>(
-      "/requisitions/admin/",
-      { params: { page: 1, per_page: 100 } }
+    const res = await api.get<APIResponse<PurchaseRequisition>>(
+      `/requisitions/admin/${id}`
     );
-    const pr = res.data.data.find((p) => p.id === id);
-    if (!pr) throw new Error("PR tidak ditemukan");
-    return pr;
+    return res.data.data;
   }, []);
 
   const invalidate = useCallback(() => {
