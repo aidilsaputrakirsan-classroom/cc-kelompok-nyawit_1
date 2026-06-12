@@ -13,6 +13,39 @@ Melalui pendekatan berbasis cloud, sistem dapat diakses kapan saja dan di mana s
 
 ---
 
+## 🔄 CI/CD Pipeline
+
+Pipeline berjalan otomatis ketika:
+
+- Push ke branch `main`
+- Pull Request ke branch `main`
+
+### Tahapan Pipeline
+
+✅ Backend Testing (Pytest)
+
+✅ Frontend Testing (Vitest)
+
+✅ Frontend Build Verification
+
+✅ Docker Image Build
+
+✅ Railway Deployment
+
+### Workflow
+
+```text
+Developer Push
+       │
+       ▼
+GitHub Actions
+       │
+       ├── Backend Test (Pytest)
+       ├── Frontend Test (Vitest)
+       ├── Docker Build
+       └── Railway Deployment
+```
+
 ## 👥 Tim
 
 | Nama | NIM | Peran |
@@ -36,19 +69,67 @@ Melalui pendekatan berbasis cloud, sistem dapat diakses kapan saja dan di mana s
 
 ---
 
+## 🏗️ System Architecture
+
+SiCure menggunakan arsitektur microservices dengan pemisahan layanan berdasarkan domain bisnis.
+
+```text
+                    ┌─────────────┐
+                    │  Frontend   │
+                    │ React + TS  │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ API Gateway │
+                    │    Nginx    │
+                    └──────┬──────┘
+                           │
+          ┌────────────────┴────────────────┐
+          ▼                                 ▼
+ ┌─────────────────┐             ┌─────────────────┐
+ │  Auth Service   │             │ Procurement Svc │
+ │ FastAPI         │             │ FastAPI         │
+ └────────┬────────┘             └────────┬────────┘
+          │                               │
+          ▼                               ▼
+ ┌─────────────────┐             ┌─────────────────┐
+ │   Auth DB       │             │ Procurement DB  │
+ │ PostgreSQL 16   │             │ PostgreSQL 16   │
+ └─────────────────┘             └─────────────────┘
+```
+
+### Komponen
+
+- Frontend (React + TypeScript)
+- API Gateway (Nginx)
+- Auth Service
+- Procurement Service
+- Auth Database
+- Procurement Database
+
+
 ## Daftar Isi
 
-1. [Prasyarat](#prasyarat)
-2. [Setup Backend (venv, requirements, alembic)](#setup-backend)
-3. [Setup Frontend](#setup-frontend)
-4. [Menjalankan Backend & Frontend Bersamaan](#menjalankan-backend--frontend-bersamaan)
-5. [Credential Demo Login](#credential-demo-login)
-6. [Alur Procurement](#alur-procurement)
-7. [Struktur Project](#struktur-project)
-8. [API Endpoints](#api-endpoints)
-9. [Scripts](#scripts)
-10. [Catatan Keamanan](#catatan-keamanan)
-11. [Next Steps](#next-steps)
+1. CI/CD Pipeline
+2. System Architecture
+3. Prasyarat
+4. Quick Start (Docker)
+5. Setup Backend
+6. Setup Frontend
+7. Menjalankan Backend & Frontend Bersamaan
+8. Credential Demo Login
+9. Alur Procurement
+10. Struktur Project
+11. ERD
+12. API Endpoints
+13. Scripts
+14. Security Features
+15. Documentation
+16. Catatan Keamanan
+17. Next Steps
+18. Tech Stack
+19. Hasil Pengujian
 
 ---
 
@@ -73,6 +154,35 @@ python3 --version   # Python 3.11.x atau lebih baru
 node --version      # v20.x.x atau lebih baru
 psql --version      # psql (PostgreSQL) 16.x atau lebih baru
 ```
+--- 
+
+## 🐳 Quick Start (Docker)
+
+Menjalankan seluruh sistem menggunakan Docker Compose:
+
+```bash
+git clone <repository-url>
+
+cd sicure
+
+cp .env.example .env
+
+docker compose up -d
+```
+
+Verifikasi:
+
+```bash
+docker ps
+```
+
+Akses aplikasi:
+
+| Service | URL |
+|----------|------|
+| Frontend | http://localhost:5173 |
+| API Gateway | http://localhost |
+| Swagger Docs | http://localhost/docs |
 
 ---
 
@@ -388,7 +498,31 @@ Dari root project (`sicure/`):
 | `npm run db:seed` | python -m app.seed   | Seed database dengan user demo               |
 | `npm run test`   | pytest                | Jalankan test suite backend                  |
 
+--- 
+
+## 🔐 Security Features
+
+- JWT Authentication
+- Password Hashing (bcrypt)
+- Role-Based Access Control (RBAC)
+- Environment Variable Based Secrets
+- CORS Protection
+- Request Validation (Pydantic)
+- File Upload Validation
+- UUID-based File Naming
+- Database Isolation per Service
+
 ---
+
+## 📄 Documentation
+
+- [API Test Result](docs/testing/api-test-result.md)
+- [UI Test Result](docs/testing/ui-test-results.md)
+- [Reliability Testing](docs/reliability-testing.md)
+- [Production Test](docs/production-test.md)
+- [Deployment Guide](docs/deployment-guide.md)
+- [API Contract](docs/api-contract.md)
+
 
 ## Catatan Keamanan
 
