@@ -1,17 +1,21 @@
 # Production overrides — gunakan dengan:
-# docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Catatan: nama service & variabel disesuaikan dengan docker-compose.yml
+# dan dengan variabel yang benar-benar dibaca aplikasi (lihat
+# backend/app/core/config.py): APP_ENV, ALLOWED_ORIGINS.
 
 services:
   backend:
     environment:
-      - DEBUG=false
-      - CORS_ORIGINS=https://yourdomain.com
+      APP_ENV: production
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://sicure-app.up.railway.app}
     restart: always
 
   frontend:
     restart: always
 
-  db:
+  postgres:
     restart: always
-    # Tidak expose port ke host di production
+    # Jangan expose port database ke host di production
     ports: !reset []
