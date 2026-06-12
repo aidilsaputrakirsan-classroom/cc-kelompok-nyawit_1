@@ -7,6 +7,7 @@ import StatusBadge from "../../components/StatusBadge";
 import type {
   PurchaseRequisition,
   PurchaseOrder,
+  GRNDocument,
   APIResponse,
   PRStatus,
 } from "../../types";
@@ -14,7 +15,6 @@ import type {
 /** Ordered status timeline */
 const STATUS_TIMELINE: { key: PRStatus; label: string }[] = [
   { key: "SUBMITTED", label: "Submitted" },
-  { key: "UNDER_REVIEW", label: "Under Review" },
   { key: "APPROVED", label: "Approved" },
   { key: "PO_ISSUED", label: "PO Issued" },
   { key: "DOC_SUBMITTED", label: "Doc Submitted" },
@@ -23,7 +23,7 @@ const STATUS_TIMELINE: { key: PRStatus; label: string }[] = [
 ];
 
 function getTimelineIndex(status: PRStatus): number {
-  if (status === "REJECTED") return 1; // stops at review stage
+  if (status === "REJECTED") return 1; // stops at the approval decision stage
   const idx = STATUS_TIMELINE.findIndex((s) => s.key === status);
   return idx >= 0 ? idx : 0;
 }
@@ -38,6 +38,8 @@ export default function RequesterPRDetail() {
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Reason shown when a previously submitted GRN was returned by the admin
+  const [grnReturnNote, setGrnReturnNote] = useState<string | null>(null);
 
   // GRN upload state
   const [showGrnModal, setShowGrnModal] = useState(false);
@@ -67,6 +69,21 @@ export default function RequesterPRDetail() {
             .then((poRes) => {
               if (poRes.data.success && poRes.data.data) {
                 setPo(poRes.data.data);
+                // If PR is back at PO_ISSUED, a returned GRN may carry a reason
+                if (prData.status === "PO_ISSUED") {
+                  return api
+                    .get<APIResponse<GRNDocument>>(
+                      `/grn/by-po/${poRes.data.data.id}`
+                    )
+                    .then((g) => {
+                      if (g.data.data?.verification_note) {
+                        setGrnReturnNote(g.data.data.verification_note);
+                      }
+                    })
+                    .catch(() => {
+                      // No GRN yet — first-time submission, nothing to show
+                    });
+                }
               }
             })
             .catch(() => {
@@ -102,6 +119,7 @@ export default function RequesterPRDetail() {
       setShowGrnModal(false);
       setInvoiceFile(null);
       setPhotoFile(null);
+      setGrnReturnNote(null);
       // Refresh PR data
       const res = await api.get<APIResponse<PurchaseRequisition>>(
         `/requisitions/${id}`
@@ -325,8 +343,8 @@ export default function RequesterPRDetail() {
         </div>
       )}
 
-      {/* Edit & Cancel Actions (only when SUBMITTED) */}
-      {pr.status === "SUBMITTED" && (
+      {/* Edit & Cancel Actions (when SUBMITTED, or revise & resubmit when REJECTED) */}
+      {(pr.status === "SUBMITTED" || pr.status === "REJECTED") && (
         <div className="action-bar" style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
           <button
             className="btn btn-outline"
@@ -336,7 +354,7 @@ export default function RequesterPRDetail() {
             Batalkan PR
           </button>
           <Link to={`/requester/pr/${id}/edit`} className="btn btn-primary">
-            Edit PR
+            {pr.status === "REJECTED" ? "Revisi & Ajukan Ulang" : "Edit PR"}
           </Link>
         </div>
       )}
@@ -411,14 +429,23 @@ export default function RequesterPRDetail() {
 
       {/* GRN Submit Button (only when PO_ISSUED) */}
       {pr.status === "PO_ISSUED" && po && (
-        <div className="action-bar">
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowGrnModal(true)}
-          >
-            Submit GRN Documents
-          </button>
-        </div>
+        <>
+          {grnReturnNote && (
+            <div className="alert alert-error">
+              <strong>Dokumen GRN dikembalikan:</strong> {grnReturnNote}
+              <br />
+              Silakan perbaiki dan upload ulang dokumen di bawah ini.
+            </div>
+          )}
+          <div className="action-bar">
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowGrnModal(true)}
+            >
+              {grnReturnNote ? "Upload Ulang Dokumen GRN" : "Submit GRN Documents"}
+            </button>
+          </div>
+        </>
       )}
 
       {/* GRN Upload Modal */}

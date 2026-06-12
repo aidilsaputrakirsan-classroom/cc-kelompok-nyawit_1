@@ -39,8 +39,10 @@ export default function RequesterPREdit() {
       .get<APIResponse<PurchaseRequisition>>(`/requisitions/${id}`)
       .then((res) => {
         const pr = res.data.data;
-        if (pr.status !== "SUBMITTED") {
-          setLoadError("Hanya PR dengan status SUBMITTED yang bisa diedit.");
+        if (pr.status !== "SUBMITTED" && pr.status !== "REJECTED") {
+          setLoadError(
+            "Hanya PR berstatus SUBMITTED atau REJECTED yang bisa diedit."
+          );
           return;
         }
         setTitle(pr.title);

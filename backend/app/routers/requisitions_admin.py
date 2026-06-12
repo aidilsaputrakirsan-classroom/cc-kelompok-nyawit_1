@@ -6,6 +6,7 @@ PUT  /api/v1/requisitions/admin/{id}/review → approve / reject PR
 """
 
 import math
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -15,12 +16,25 @@ from sqlalchemy.orm import selectinload
 from app.core.deps import require_role
 from app.db.session import get_db
 from app.models.enums import PRStatus
+from app.models.purchase_order import PurchaseOrder
 from app.models.purchase_requisition import PurchaseRequisition
 from app.models.user import User
 from app.schemas.common import APIResponse, PaginatedResponse, PaginationMeta
-from app.schemas.purchase_requisition import PROut, PRStatusUpdate
+from app.schemas.purchase_requisition import PROut, PRReviewRequest
+from app.services.vendor_quote_rules import (
+    VendorQuoteError,
+    compute_allocated_budget,
+    resolve_selected_vendor,
+)
 
 router = APIRouter(prefix="/api/v1/requisitions/admin", tags=["requisitions-admin"])
+
+
+def _generate_po_number() -> str:
+    """Generate a PO number like PO-20260415-XXXXXXXX using current UTC timestamp."""
+    now = datetime.now(timezone.utc)
+    seq = now.strftime("%H%M%S%f")[:8]
+    return f"PO-{now.strftime('%Y%m%d')}-{seq}"
 
 
 # ── GET / ─────────────────────────────────────────────────────────
@@ -66,7 +80,10 @@ async def list_all_requisitions(
     # Fetch page
     offset = (page - 1) * per_page
     rows_q = (
-        base.options(selectinload(PurchaseRequisition.line_items))
+        base.options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+        )
         .order_by(PurchaseRequisition.created_at.desc())
         .offset(offset)
         .limit(per_page)
@@ -90,30 +107,30 @@ async def list_all_requisitions(
 # ── PUT /{id}/review ──────────────────────────────────────────────
 @router.put(
     "/{pr_id}/review",
-    summary="Review PR — approve atau reject",
+    summary="Review PR — approve (sekaligus terbitkan PO) atau reject",
 )
 async def review_requisition(
     pr_id: int,
-    body: PRStatusUpdate,
+    body: PRReviewRequest,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_role(["admin"])),
 ):
     """
-    Admin meng-approve atau me-reject sebuah PR.
-    - Hanya PR dengan status SUBMITTED yang bisa di-review.
-    - Status target hanya boleh APPROVED atau REJECTED.
-    - approval_note wajib diisi.
-    """
-    # Validate target status
-    if body.status not in (PRStatus.APPROVED, PRStatus.REJECTED):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Status review hanya boleh APPROVED atau REJECTED",
-        )
+    Admin me-review sebuah PR berstatus SUBMITTED.
 
+    - action=REJECT: PR → REJECTED, approval_note wajib.
+    - action=APPROVE: terbitkan PO untuk vendor terpilih (default = vendor
+      rekomendasi, bisa di-override via selected_vendor_quote_id) dan PR →
+      PO_ISSUED dalam satu transaksi. allocated_budget = harga vendor terpilih
+      (atau total_amount untuk PR legacy tanpa vendor).
+    """
     result = await db.execute(
         select(PurchaseRequisition)
-        .options(selectinload(PurchaseRequisition.line_items))
+        .options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+            selectinload(PurchaseRequisition.purchase_order),
+        )
         .where(PurchaseRequisition.id == pr_id)
     )
     pr = result.scalar_one_or_none()
@@ -124,29 +141,75 @@ async def review_requisition(
             detail="Purchase Requisition tidak ditemukan",
         )
 
-    # Only SUBMITTED PRs can be reviewed
+    # ── REJECT ────────────────────────────────────────────────────
+    if body.action == "REJECT":
+        if pr.status != PRStatus.SUBMITTED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"PR tidak bisa di-review. Status saat ini: {pr.status}. "
+                       f"Hanya PR dengan status SUBMITTED yang bisa di-review.",
+            )
+        pr.status = PRStatus.REJECTED
+        pr.approval_note = body.approval_note
+        await db.commit()
+        pr = await _get_pr_full_admin(db, pr_id)
+        return APIResponse(
+            success=True,
+            data=PROut.model_validate(pr).model_dump(mode="json"),
+            message="Purchase Requisition berhasil ditolak",
+        )
+
+    # ── APPROVE (+ issue PO) ──────────────────────────────────────
     if pr.status != PRStatus.SUBMITTED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"PR tidak bisa di-review. Status saat ini: {pr.status}. "
-                   f"Hanya PR dengan status SUBMITTED yang bisa di-review.",
+            detail=f"PR tidak bisa di-approve. Status saat ini: {pr.status}.",
+        )
+    if pr.purchase_order is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="PO sudah pernah diterbitkan untuk PR ini",
         )
 
-    pr.status = body.status
+    try:
+        selected = resolve_selected_vendor(
+            pr.vendor_quotes, body.selected_vendor_quote_id
+        )
+    except VendorQuoteError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+
+    budget = compute_allocated_budget(selected, pr.total_amount)
+
+    po = PurchaseOrder(
+        po_number=_generate_po_number(),
+        pr_id=pr.id,
+        issued_by=admin.id,
+        allocated_budget=float(budget),
+        selected_vendor_quote_id=selected.id if selected is not None else None,
+    )
+    db.add(po)
+    pr.status = PRStatus.PO_ISSUED
     pr.approval_note = body.approval_note
 
     await db.commit()
-    await db.refresh(pr)
-    
-    # Explicitly load line_items after refresh
-    await db.refresh(pr, attribute_names=["line_items"])
-
-    action = "disetujui" if body.status == PRStatus.APPROVED else "ditolak"
+    pr = await _get_pr_full_admin(db, pr_id)
     return APIResponse(
         success=True,
         data=PROut.model_validate(pr).model_dump(mode="json"),
-        message=f"Purchase Requisition berhasil {action}",
+        message="Purchase Requisition disetujui dan Purchase Order diterbitkan",
     )
+
+
+async def _get_pr_full_admin(db: AsyncSession, pr_id: int) -> PurchaseRequisition | None:
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+        )
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    return result.scalar_one_or_none()
 
 
 # ── GET /categories ───────────────────────────────────────────────
@@ -183,5 +246,43 @@ async def get_all_item_categories(
     return APIResponse(
         success=True,
         data={"categories": categories},
+        message="OK",
+    )
+
+
+# ── GET /{id} ─────────────────────────────────────────────────────
+# NOTE: Must be declared AFTER /categories so the literal "categories"
+# path is matched before this dynamic {pr_id} route.
+@router.get(
+    "/{pr_id}",
+    summary="Detail PR (admin only)",
+)
+async def get_requisition_detail_admin(
+    pr_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(["admin"])),
+):
+    """
+    Admin melihat detail satu PR beserta line items, tanpa batasan kepemilikan.
+    """
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+        )
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
+
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Requisition tidak ditemukan",
+        )
+
+    return APIResponse(
+        success=True,
+        data=PROut.model_validate(pr).model_dump(mode="json"),
         message="OK",
     )

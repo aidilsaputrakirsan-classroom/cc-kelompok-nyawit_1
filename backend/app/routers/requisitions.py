@@ -6,25 +6,49 @@ GET  /api/v1/requisitions          → list PR milik requester (pagination + fil
 GET  /api/v1/requisitions/{id}     → detail PR + line items + status history
 """
 
+import json
 import math
+import re
 from datetime import datetime, timezone
+from decimal import Decimal
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from starlette.datastructures import UploadFile
 
+from app.core.config import settings
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.enums import PRStatus
 from app.models.pr_line_item import PRLineItem
 from app.models.purchase_requisition import PurchaseRequisition
 from app.models.user import User
+from app.models.vendor_quote import VendorQuote
 from app.schemas.common import APIResponse, PaginatedResponse, PaginationMeta
-from app.schemas.pr_line_item import ItemOut
-from app.schemas.purchase_requisition import PRCreate, PROut, PRUpdate
+from app.schemas.pr_line_item import ItemSchema
+from app.schemas.purchase_requisition import PROut, PRUpdate
+from app.schemas.vendor_quote import VendorQuoteIn
+from app.services.vendor_quote_rules import (
+    VendorQuoteError,
+    validate_single_recommended,
+    validate_vendor_count,
+)
+from app.utils.uploads import validate_and_save
 
 router = APIRouter(prefix="/api/v1/requisitions", tags=["requisitions"])
+
+_VENDOR_FILE_RE = re.compile(r"^vendor_quotes\[(\d+)\]\.survey_evidence$")
 
 
 def _generate_pr_number() -> str:
@@ -35,54 +59,192 @@ def _generate_pr_number() -> str:
     return f"PR-{now.strftime('%Y%m%d')}-{seq}"
 
 
+def _cleanup_files(paths: list[str]) -> None:
+    """Best-effort removal of files saved during a failed transaction (Req 1.7)."""
+    for p in paths:
+        try:
+            Path(p).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+async def _parse_pr_multipart(request: Request):
+    """Parse multipart PR payload: fields, items_json, vendor_quotes_json, files.
+
+    Returns (title, justification, items, quotes, files_by_index).
+    Raises HTTPException 400 on malformed input.
+    """
+    form = await request.form()
+
+    title = (form.get("title") or "").strip()
+    justification = form.get("justification")
+    if justification is not None:
+        justification = justification.strip() or None
+
+    items_json = form.get("items_json")
+    vendor_quotes_json = form.get("vendor_quotes_json")
+
+    if not title:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Judul PR wajib diisi.")
+    if not items_json:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Daftar item (items_json) wajib diisi.")
+    if not vendor_quotes_json:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Penawaran vendor (vendor_quotes_json) wajib diisi.",
+        )
+
+    try:
+        items = [ItemSchema.model_validate(i) for i in json.loads(items_json)]
+    except (json.JSONDecodeError, ValidationError, TypeError) as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Format item tidak valid: {e}")
+    if not items:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Minimal 1 line item diperlukan.")
+
+    try:
+        quotes = [VendorQuoteIn.model_validate(q) for q in json.loads(vendor_quotes_json)]
+    except (json.JSONDecodeError, ValidationError, TypeError) as e:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"Format penawaran vendor tidak valid: {e}"
+        )
+    if not quotes:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Minimal satu penawaran vendor diperlukan."
+        )
+
+    files: dict[int, UploadFile] = {}
+    for key, value in form.multi_items():
+        m = _VENDOR_FILE_RE.match(key)
+        if m and isinstance(value, UploadFile):
+            files[int(m.group(1))] = value
+
+    return title, justification, items, quotes, files
+
+
+def _validate_vendor_rules(total: float, quotes: list[VendorQuoteIn], files: dict[int, UploadFile]) -> None:
+    """Validate vendor count, single recommended, and per-vendor file presence."""
+    threshold = Decimal(str(settings.QUOTE_THRESHOLD))
+    try:
+        validate_vendor_count(Decimal(str(total)), threshold, len(quotes))
+        validate_single_recommended([q.is_recommended for q in quotes])
+    except VendorQuoteError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+
+    for idx in range(len(quotes)):
+        if idx not in files:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Vendor #{idx + 1}: berkas bukti survei wajib diunggah.",
+            )
+
+
+async def _get_pr_full(db: AsyncSession, pr_id: int) -> PurchaseRequisition | None:
+    """Fetch a PR with line_items and vendor_quotes eagerly loaded."""
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+        )
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    return result.scalar_one_or_none()
+
+
 # ── POST / ────────────────────────────────────────────────────────
 @router.post(
     "/",
     status_code=status.HTTP_201_CREATED,
-    summary="Buat Purchase Requisition baru",
+    summary="Buat Purchase Requisition baru (multipart + penawaran vendor)",
 )
 async def create_requisition(
-    body: PRCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Requester membuat PR baru beserta line items.
-    Status langsung di-set ke SUBMITTED.
-    Total amount dihitung otomatis dari line items.
+    Requester membuat PR baru beserta line items dan penawaran vendor.
+
+    Body: multipart/form-data
+      - title, justification
+      - items_json: JSON array line items
+      - vendor_quotes_json: JSON array metadata vendor
+      - vendor_quotes[i].survey_evidence: berkas bukti survei per vendor
+
+    Status langsung SUBMITTED. Total dihitung dari line items. Jumlah minimal
+    vendor mengikuti ambang nilai. Transaksi atomik: bila gagal di tengah,
+    seluruh PR dibatalkan dan berkas yang sempat tersimpan dibersihkan.
     """
-    # Calculate total from line items
-    total = sum(
-        round(item.quantity * item.estimated_unit_price, 2) for item in body.items
-    )
+    title, justification, items, quotes, files = await _parse_pr_multipart(request)
+
+    total = sum(round(item.quantity * item.estimated_unit_price, 2) for item in items)
+
+    # Validasi aturan vendor sebelum menyentuh database (Req 1.6, 3.x, 4.x, 2.5)
+    _validate_vendor_rules(total, quotes, files)
 
     pr = PurchaseRequisition(
         pr_number=_generate_pr_number(),
         requester_id=current_user.id,
-        title=body.title,
-        justification=body.justification,
+        title=title,
+        justification=justification,
         status=PRStatus.SUBMITTED,
         total_amount=total,
     )
     db.add(pr)
-    await db.flush()  # get pr.id before creating line items
 
-    # Create line items
-    for item in body.items:
-        subtotal = round(item.quantity * item.estimated_unit_price, 2)
-        line = PRLineItem(
-            pr_id=pr.id,
-            item_name=item.item_name,
-            quantity=item.quantity,
-            unit_of_measure=item.unit_of_measure,
-            estimated_unit_price=item.estimated_unit_price,
-            subtotal=subtotal,
+    saved_paths: list[str] = []
+    try:
+        await db.flush()  # dapatkan pr.id & pr.pr_number
+
+        # Line items
+        for item in items:
+            subtotal = round(item.quantity * item.estimated_unit_price, 2)
+            db.add(
+                PRLineItem(
+                    pr_id=pr.id,
+                    item_name=item.item_name,
+                    quantity=item.quantity,
+                    unit_of_measure=item.unit_of_measure,
+                    estimated_unit_price=item.estimated_unit_price,
+                    subtotal=subtotal,
+                )
+            )
+
+        # Vendor quotes + bukti survei
+        upload_dir = Path(settings.UPLOAD_DIR) / "vendor_quotes" / pr.pr_number
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        for idx, q in enumerate(quotes):
+            path = await validate_and_save(
+                files[idx], upload_dir, f"Vendor #{idx + 1} bukti survei"
+            )
+            saved_paths.append(path)
+            db.add(
+                VendorQuote(
+                    pr_id=pr.id,
+                    vendor_name=q.vendor_name,
+                    vendor_contact=q.vendor_contact,
+                    quoted_price=q.quoted_price,
+                    survey_date=q.survey_date,
+                    survey_evidence_url=path,
+                    is_recommended=q.is_recommended,
+                )
+            )
+
+        await db.commit()
+    except HTTPException:
+        await db.rollback()
+        _cleanup_files(saved_paths)
+        raise
+    except Exception:
+        # Req 1.7: jangan tinggalkan PR tanpa vendor quote
+        await db.rollback()
+        _cleanup_files(saved_paths)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gagal membuat Purchase Requisition.",
         )
-        db.add(line)
 
-    await db.commit()
-    await db.refresh(pr, attribute_names=["line_items"])
-
+    pr = await _get_pr_full(db, pr.id)
     return APIResponse(
         success=True,
         data=PROut.model_validate(pr).model_dump(mode="json"),
@@ -132,7 +294,10 @@ async def list_my_requisitions(
     # Fetch page
     offset = (page - 1) * per_page
     rows_q = (
-        base.options(selectinload(PurchaseRequisition.line_items))
+        base.options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+        )
         .order_by(PurchaseRequisition.created_at.desc())
         .offset(offset)
         .limit(per_page)
@@ -167,12 +332,7 @@ async def get_requisition_detail(
     Menampilkan detail PR beserta line items.
     Requester hanya bisa melihat PR miliknya sendiri.
     """
-    result = await db.execute(
-        select(PurchaseRequisition)
-        .options(selectinload(PurchaseRequisition.line_items))
-        .where(PurchaseRequisition.id == pr_id)
-    )
-    pr = result.scalar_one_or_none()
+    pr = await _get_pr_full(db, pr_id)
 
     if pr is None:
         raise HTTPException(
@@ -251,7 +411,10 @@ async def update_requisition(
     """
     result = await db.execute(
         select(PurchaseRequisition)
-        .options(selectinload(PurchaseRequisition.line_items))
+        .options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+        )
         .where(PurchaseRequisition.id == pr_id)
     )
     pr = result.scalar_one_or_none()
@@ -268,11 +431,14 @@ async def update_requisition(
             detail="Anda tidak memiliki akses ke PR ini",
         )
 
-    if pr.status != PRStatus.SUBMITTED:
+    if pr.status not in (PRStatus.SUBMITTED, PRStatus.REJECTED):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Hanya PR dengan status SUBMITTED yang bisa diedit",
+            detail="Hanya PR berstatus SUBMITTED atau REJECTED yang bisa diedit",
         )
+
+    # Track whether this is a revision of a rejected PR (resubmit flow)
+    was_rejected = pr.status == PRStatus.REJECTED
 
     # Update PR fields
     pr.title = body.title
@@ -303,20 +469,32 @@ async def update_requisition(
         # Explicitly add to relationship list
         pr.line_items.append(line)
 
+    # If this was a rejected PR, re-validate the existing vendor quotes against
+    # the new total (Req 8.4), then resubmit it (REJECTED → SUBMITTED).
+    if was_rejected:
+        threshold = Decimal(str(settings.QUOTE_THRESHOLD))
+        try:
+            validate_vendor_count(Decimal(str(total)), threshold, len(pr.vendor_quotes))
+            validate_single_recommended([q.is_recommended for q in pr.vendor_quotes])
+        except VendorQuoteError as e:
+            await db.rollback()
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+        pr.status = PRStatus.SUBMITTED
+        pr.approval_note = None
+
     await db.commit()
-    
-    # Re-fetch the PR with a fresh query to avoid lazy loading issues
-    result = await db.execute(
-        select(PurchaseRequisition)
-        .options(selectinload(PurchaseRequisition.line_items))
-        .where(PurchaseRequisition.id == pr_id)
-    )
-    pr = result.scalar_one_or_none()
+
+    # Re-fetch the PR with relationships eagerly loaded
+    pr = await _get_pr_full(db, pr_id)
 
     return APIResponse(
         success=True,
         data=PROut.model_validate(pr).model_dump(mode="json"),
-        message="Purchase Requisition berhasil diperbarui",
+        message=(
+            "Purchase Requisition berhasil direvisi dan diajukan ulang"
+            if was_rejected
+            else "Purchase Requisition berhasil diperbarui"
+        ),
     )
 
 
@@ -353,10 +531,10 @@ async def delete_requisition(
             detail="Anda tidak memiliki akses ke PR ini",
         )
 
-    if pr.status != PRStatus.SUBMITTED:
+    if pr.status not in (PRStatus.SUBMITTED, PRStatus.REJECTED):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Hanya PR dengan status SUBMITTED yang bisa dibatalkan",
+            detail="Hanya PR berstatus SUBMITTED atau REJECTED yang bisa dibatalkan",
         )
 
     await db.delete(pr)

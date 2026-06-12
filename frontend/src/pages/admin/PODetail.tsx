@@ -5,7 +5,7 @@ import StatusBadge from "../../components/StatusBadge";
 import type {
   PurchaseOrder,
   PurchaseRequisition,
-  PaginatedResponse,
+  APIResponse,
 } from "../../types";
 
 export default function AdminPODetail() {
@@ -20,25 +20,18 @@ export default function AdminPODetail() {
     if (!id) return;
     setLoading(true);
     try {
-      const poRes = await api.get<PaginatedResponse<PurchaseOrder>>(
-        "/purchase-orders/",
-        { params: { page: 1, per_page: 100 } }
+      const poRes = await api.get<APIResponse<PurchaseOrder>>(
+        `/purchase-orders/${id}`
       );
-      const found = poRes.data.data.find((p) => p.id === Number(id));
-      if (!found) {
-        setError("Purchase Order tidak ditemukan.");
-        return;
-      }
+      const found = poRes.data.data;
       setPo(found);
 
       // Fetch the linked PR
       try {
-        const prRes = await api.get<PaginatedResponse<PurchaseRequisition>>(
-          "/requisitions/admin/",
-          { params: { page: 1, per_page: 100 } }
+        const prRes = await api.get<APIResponse<PurchaseRequisition>>(
+          `/requisitions/admin/${found.pr_id}`
         );
-        const foundPr = prRes.data.data.find((p) => p.id === found.pr_id);
-        if (foundPr) setPr(foundPr);
+        setPr(prRes.data.data);
       } catch {
         // Non-critical
       }

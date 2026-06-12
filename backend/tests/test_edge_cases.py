@@ -1,6 +1,8 @@
 """Test edge cases dan error handling untuk meningkatkan coverage."""
 import pytest
 
+from tests.conftest import pr_multipart
+
 
 @pytest.mark.asyncio
 async def test_health_check_database_error(client):
@@ -27,12 +29,12 @@ async def test_api_health_check_detailed(client):
 @pytest.mark.asyncio
 async def test_create_requisition_empty_items(client, auth_headers):
     """Test create PR dengan items kosong → validation error."""
-    response = await client.post("/api/v1/requisitions/", json={
-        "title": "PR Empty Items",
-        "justification": "Testing",
-        "items": []
-    }, headers=auth_headers)
-    
+    data, files = pr_multipart("PR Empty Items", "Testing", [])
+
+    response = await client.post(
+        "/api/v1/requisitions/", data=data, files=files, headers=auth_headers
+    )
+
     # Seharusnya validasi error (422 atau 400)
     assert response.status_code in [422, 400]
 
@@ -41,12 +43,15 @@ async def test_create_requisition_empty_items(client, auth_headers):
 async def test_update_requisition_not_owner(client, auth_headers):
     """Test update PR milik user lain → 403."""
     # Buat PR sebagai user pertama
-    create_resp = await client.post("/api/v1/requisitions/", json={
-        "title": "PR Other User",
-        "justification": "Testing",
-        "items": [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}]
-    }, headers=auth_headers)
-    
+    data, files = pr_multipart(
+        "PR Other User",
+        "Testing",
+        [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}],
+    )
+    create_resp = await client.post(
+        "/api/v1/requisitions/", data=data, files=files, headers=auth_headers
+    )
+
     pr_id = create_resp.json()["data"]["id"]
     
     # Register user kedua
@@ -82,24 +87,27 @@ async def test_update_requisition_not_owner(client, auth_headers):
 @pytest.mark.asyncio
 async def test_delete_requisition_already_processed(client, auth_headers, admin_auth_headers):
     """Test hapus PR yang sudah di-approve → 409 atau 400."""
-    create_resp = await client.post("/api/v1/requisitions/", json={
-        "title": "PR Already Approved",
-        "justification": "Testing",
-        "items": [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}]
-    }, headers=auth_headers)
-    
+    data, files = pr_multipart(
+        "PR Already Approved",
+        "Testing",
+        [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}],
+    )
+    create_resp = await client.post(
+        "/api/v1/requisitions/", data=data, files=files, headers=auth_headers
+    )
+
     pr_id = create_resp.json()["data"]["id"]
-    
-    # Approve PR
+
+    # Approve PR (jalur baru → PO_ISSUED)
     await client.put(
         f"/api/v1/requisitions/admin/{pr_id}/review",
-        json={"status": "APPROVED", "approval_note": "Approved"},
+        json={"action": "APPROVE", "approval_note": "Approved"},
         headers=admin_auth_headers
     )
-    
+
     # Coba hapus
     response = await client.delete(f"/api/v1/requisitions/{pr_id}", headers=auth_headers)
-    
+
     # Seharusnya error (409 Conflict atau 400 Bad Request)
     assert response.status_code in [409, 400]
 
@@ -109,11 +117,14 @@ async def test_list_requisitions_with_pagination(client, auth_headers):
     """Test list PR dengan pagination parameters."""
     # Buat beberapa PR
     for i in range(5):
-        await client.post("/api/v1/requisitions/", json={
-            "title": f"Pagination Test PR {i}",
-            "justification": "Testing",
-            "items": [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}]
-        }, headers=auth_headers)
+        data, files = pr_multipart(
+            f"Pagination Test PR {i}",
+            "Testing",
+            [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}],
+        )
+        await client.post(
+            "/api/v1/requisitions/", data=data, files=files, headers=auth_headers
+        )
     
     # Test dengan page dan per_page
     response = await client.get("/api/v1/requisitions/?page=1&per_page=2", headers=auth_headers)
@@ -170,50 +181,56 @@ async def test_register_weak_password(client):
 @pytest.mark.asyncio
 async def test_admin_review_pr_not_submitted(client, auth_headers, admin_auth_headers):
     """Test review PR yang sudah di-review → 409."""
-    create_resp = await client.post("/api/v1/requisitions/", json={
-        "title": "PR Double Review",
-        "justification": "Testing",
-        "items": [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}]
-    }, headers=auth_headers)
-    
+    data, files = pr_multipart(
+        "PR Double Review",
+        "Testing",
+        [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}],
+    )
+    create_resp = await client.post(
+        "/api/v1/requisitions/", data=data, files=files, headers=auth_headers
+    )
+
     pr_id = create_resp.json()["data"]["id"]
-    
+
     # Approve first time
     await client.put(
         f"/api/v1/requisitions/admin/{pr_id}/review",
-        json={"status": "APPROVED", "approval_note": "First approval"},
+        json={"action": "APPROVE", "approval_note": "First approval"},
         headers=admin_auth_headers
     )
-    
+
     # Try to approve again
     response = await client.put(
         f"/api/v1/requisitions/admin/{pr_id}/review",
-        json={"status": "APPROVED", "approval_note": "Second approval"},
+        json={"action": "APPROVE", "approval_note": "Second approval"},
         headers=admin_auth_headers
     )
-    
+
     assert response.status_code == 409
 
 
 @pytest.mark.asyncio
 async def test_issue_po_for_rejected_pr(client, auth_headers, admin_auth_headers):
     """Test issue PO untuk PR yang REJECTED → 409."""
-    create_resp = await client.post("/api/v1/requisitions/", json={
-        "title": "PR Rejected",
-        "justification": "Testing",
-        "items": [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}]
-    }, headers=auth_headers)
-    
+    data, files = pr_multipart(
+        "PR Rejected",
+        "Testing",
+        [{"item_name": "Item", "quantity": 1, "unit_of_measure": "pcs", "estimated_unit_price": 1000}],
+    )
+    create_resp = await client.post(
+        "/api/v1/requisitions/", data=data, files=files, headers=auth_headers
+    )
+
     pr_id = create_resp.json()["data"]["id"]
-    
+
     # Reject PR
     await client.put(
         f"/api/v1/requisitions/admin/{pr_id}/review",
-        json={"status": "REJECTED", "approval_note": "Rejected"},
+        json={"action": "REJECT", "approval_note": "Rejected"},
         headers=admin_auth_headers
     )
-    
+
     # Try to issue PO
     response = await client.post(f"/api/v1/purchase-orders/{pr_id}/issue", headers=admin_auth_headers)
-    
+
     assert response.status_code == 409

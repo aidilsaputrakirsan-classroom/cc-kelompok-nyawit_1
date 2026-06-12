@@ -8,9 +8,7 @@ import enum
 class PRStatus(str, enum.Enum):
     """Purchase Requisition lifecycle status."""
 
-    DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
-    UNDER_REVIEW = "UNDER_REVIEW"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     PO_ISSUED = "PO_ISSUED"

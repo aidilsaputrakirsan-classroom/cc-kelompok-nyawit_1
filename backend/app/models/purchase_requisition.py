@@ -40,7 +40,7 @@ class PurchaseRequisition(Base):
     status: Mapped[PRStatus] = mapped_column(
         String(20),
         nullable=False,
-        default=PRStatus.DRAFT,
+        default=PRStatus.SUBMITTED,
         index=True,
     )
     total_amount: Mapped[float] = mapped_column(
@@ -67,6 +67,12 @@ class PurchaseRequisition(Base):
     )
     line_items: Mapped[list["PRLineItem"]] = relationship(
         "PRLineItem",
+        back_populates="purchase_requisition",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    vendor_quotes: Mapped[list["VendorQuote"]] = relationship(
+        "VendorQuote",
         back_populates="purchase_requisition",
         cascade="all, delete-orphan",
         passive_deletes=True,

@@ -23,6 +23,26 @@ export interface PRLineItem {
   subtotal: number;
 }
 
+export interface VendorQuote {
+  id: number;
+  pr_id: number;
+  vendor_name: string;
+  vendor_contact: string;
+  quoted_price: number;
+  survey_date: string; // ISO date (YYYY-MM-DD)
+  survey_evidence_url: string;
+  is_recommended: boolean;
+}
+
+/** Vendor quote shape for creating a PR (file kept separately in component state) */
+export interface VendorQuoteInput {
+  vendor_name: string;
+  vendor_contact: string;
+  quoted_price: number;
+  survey_date: string;
+  is_recommended: boolean;
+}
+
 /** Line item shape for creating a PR (no id/pr_id/subtotal) */
 export interface PRLineItemInput {
   item_name: string;
@@ -32,9 +52,7 @@ export interface PRLineItemInput {
 }
 
 export type PRStatus =
-  | "DRAFT"
   | "SUBMITTED"
-  | "UNDER_REVIEW"
   | "APPROVED"
   | "REJECTED"
   | "PO_ISSUED"
@@ -54,6 +72,7 @@ export interface PurchaseRequisition {
   approval_note: string | null;
   requester_id: number;
   line_items?: PRLineItem[];
+  vendor_quotes?: VendorQuote[];
 }
 
 export interface PurchaseOrder {
@@ -63,6 +82,7 @@ export interface PurchaseOrder {
   issued_by: number;
   issued_at: string;
   allocated_budget: number;
+  selected_vendor_quote_id: number | null;
 }
 
 export interface GRNDocument {
@@ -105,10 +125,11 @@ export interface PRCreatePayload {
   items: PRLineItemInput[];
 }
 
-/** Payload for admin review (approve/reject) */
+/** Payload for admin review (approve+issue PO / reject) */
 export interface PRReviewPayload {
-  status: "APPROVED" | "REJECTED";
+  action: "APPROVE" | "REJECT";
   approval_note: string;
+  selected_vendor_quote_id?: number | null;
 }
 
 /** Payload for GRN verification */

@@ -23,5 +23,6 @@ class POOut(BaseModel):
     issued_by: int
     issued_at: datetime
     allocated_budget: float
+    selected_vendor_quote_id: int | None = None
 
     model_config = {"from_attributes": True}

@@ -41,6 +41,17 @@ class GRNVerify(BaseModel):
         return self
 
 
+class GRNReturn(BaseModel):
+    """Payload for admin to return a GRN submission back to the requester."""
+
+    verification_note: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="Alasan pengembalian dokumen wajib diisi",
+    )
+
+
 # ── Response ───────────────────────────────────────────────────────
 class GRNOut(BaseModel):
     id: int

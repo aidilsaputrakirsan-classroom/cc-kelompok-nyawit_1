@@ -21,7 +21,7 @@ export default function RequesterDashboard() {
   const stats = {
     total: prs.length,
     inProgress: prs.filter((pr) => 
-      ["SUBMITTED", "UNDER_REVIEW", "APPROVED"].includes(pr.status)
+      ["SUBMITTED", "APPROVED"].includes(pr.status)
     ).length,
     poIssued: prs.filter((pr) => pr.status === "PO_ISSUED").length,
     completed: prs.filter((pr) => 

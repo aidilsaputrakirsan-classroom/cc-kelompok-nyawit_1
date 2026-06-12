@@ -27,11 +27,12 @@ Environment Variables:
 
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import async_session
 from app.models.enums import PRStatus, UserRole
@@ -40,6 +41,7 @@ from app.models.purchase_requisition import PurchaseRequisition
 from app.models.pr_line_item import PRLineItem
 from app.models.purchase_order import PurchaseOrder
 from app.models.grn_document import GRNDocument
+from app.models.vendor_quote import VendorQuote
 
 
 # ── Demo users ────────────────────────────────────────────────────
@@ -70,6 +72,59 @@ REQUESTER_USERS = [
         "role": UserRole.REQUESTER,
     },
 ]
+
+
+# ── Vendor pool for demo quotes ───────────────────────────────────
+# Used to generate realistic vendor comparison data for every PR so the
+# demo shows the full "3-quotation" flow (and the single-quote branch for
+# PRs at/below the QUOTE_THRESHOLD).
+VENDOR_POOL = [
+    ("CV Mitra Teknologi Nusantara", "0811-1010-2020"),
+    ("PT Sinar Komputindo Jaya", "0812-2020-3030"),
+    ("PT Global Niaga Solusi", "0813-3030-4040"),
+    ("CV Berkah Elektronik", "0814-4040-5050"),
+    ("PT Andalan Sistem Integrasi", "0815-5050-6060"),
+    ("PT Cipta Sarana Digital", "0816-6060-7070"),
+    ("CV Sumber Rejeki Teknik", "0817-7070-8080"),
+    ("PT Trijaya Multi Vendor", "0818-8080-9090"),
+    ("PT Karya Mandiri Sentosa", "0819-9090-1010"),
+]
+
+
+def _build_vendor_quotes(pr_id: int, total: int, pool_offset: int) -> list[VendorQuote]:
+    """Generate vendor quotes for a PR following the procurement rules.
+
+    - total  > QUOTE_THRESHOLD → 3 vendors (full comparison).
+    - total <= QUOTE_THRESHOLD → 1 vendor (single-quote branch).
+    Exactly one quote is flagged ``is_recommended`` (the best/lowest price),
+    and that quote's ``quoted_price`` becomes the PO allocated budget.
+    """
+    threshold = settings.QUOTE_THRESHOLD
+    n = 3 if total > threshold else 1
+
+    # Price spread around the estimated total; recommended = lowest price.
+    spreads = [0.97, 1.04, 1.00][:n]
+    survey_base = datetime.now(timezone.utc).date() - timedelta(days=7)
+
+    quotes: list[VendorQuote] = []
+    for i in range(n):
+        name, contact = VENDOR_POOL[(pool_offset + i) % len(VENDOR_POOL)]
+        price = int(round(total * spreads[i]))
+        quotes.append(
+            VendorQuote(
+                pr_id=pr_id,
+                vendor_name=name,
+                vendor_contact=contact,
+                quoted_price=price,
+                survey_date=survey_base + timedelta(days=i),
+                survey_evidence_url=(
+                    f"uploads/vendor_quotes/seed/pr-{pr_id}/"
+                    f"dummy_survey_vendor{i + 1}.pdf"
+                ),
+                is_recommended=(i == 0),  # lowest-price vendor is recommended
+            )
+        )
+    return quotes
 
 
 # ── Dummy PR data per timeline stage ──────────────────────────────
@@ -253,6 +308,37 @@ SEED_PRS = [
             ("Shure MXA920 Ceiling Mic", 3, "unit", 15_000_000),
         ],
     },
+    # ── Small-value PRs (≤ QUOTE_THRESHOLD) → single-quote branch ──
+    {
+        "requester_idx": 1,
+        "title": "Pembelian ATK dan Perlengkapan Kantor",
+        "justification": "Stok alat tulis kantor dan perlengkapan administrasi "
+                         "sudah menipis. Pengadaan rutin bulanan untuk operasional "
+                         "harian tim.",
+        "target_status": PRStatus.SUBMITTED,
+        "items": [
+            ("Kertas A4 80gsm", 10, "rim", 65_000),
+            ("Tinta Printer Original", 4, "set", 320_000),
+            ("Map Folder Plastik", 50, "pcs", 8_500),
+            ("Spidol Whiteboard", 24, "pcs", 12_000),
+        ],
+    },
+    {
+        "requester_idx": 0,
+        "title": "Pengadaan Aksesoris Pendukung Workstation",
+        "justification": "Penggantian aksesoris pendukung kerja yang sudah rusak: "
+                         "mouse, keyboard, dan headset untuk beberapa staf.",
+        "target_status": PRStatus.CLOSED,
+        "approval_note": "Disetujui. Nilai pengadaan di bawah ambang sehingga cukup "
+                         "satu penawaran vendor terverifikasi.",
+        "verification_note": "Semua aksesoris sudah diterima dan berfungsi normal. "
+                             "Procurement selesai.",
+        "items": [
+            ("Mouse Wireless Logitech M331", 5, "unit", 250_000),
+            ("Keyboard Mechanical TKL", 3, "unit", 480_000),
+            ("Headset USB Jabra Evolve 20", 2, "unit", 750_000),
+        ],
+    },
 ]
 
 
@@ -307,6 +393,16 @@ async def seed_demo_prs(db: AsyncSession, requesters: list[User]) -> None:
     """Seed demo PR data - IDEMPOTENT (only creates if demo data doesn't exist)"""
     now = datetime.now(timezone.utc)
     pr_counter = 0
+
+    # Resolve the admin user — PO.issued_by must reference an admin, not a requester.
+    admin_result = await db.execute(
+        select(User).where(User.email == ADMIN_USER["email"])
+    )
+    admin = admin_result.scalar_one_or_none()
+    if admin is None:
+        raise RuntimeError(
+            "Admin user belum ada. Jalankan seed_admin() sebelum seed_demo_prs()."
+        )
     
     for pr_data in SEED_PRS:
         pr_counter += 1
@@ -357,6 +453,14 @@ async def seed_demo_prs(db: AsyncSession, requesters: list[User]) -> None:
             db.add(item)
         
         await db.flush()
+
+        # Create vendor quotes (3 above threshold, 1 at/below) and pick the
+        # recommended one — its price drives the PO allocated budget.
+        quotes = _build_vendor_quotes(pr.id, total, pool_offset=pr_counter)
+        for q in quotes:
+            db.add(q)
+        await db.flush()
+        recommended = next(q for q in quotes if q.is_recommended)
         
         # Progress PR through the timeline
         po = None
@@ -383,8 +487,10 @@ async def seed_demo_prs(db: AsyncSession, requesters: list[User]) -> None:
             po = PurchaseOrder(
                 po_number=po_number,
                 pr_id=pr.id,
-                issued_by=requesters[0].id,  # Admin
-                allocated_budget=total,
+                issued_by=admin.id,  # Admin who issued the PO
+                # Budget = recommended vendor's quoted price (real procurement value)
+                allocated_budget=float(recommended.quoted_price),
+                selected_vendor_quote_id=recommended.id,
             )
             db.add(po)
             pr.status = PRStatus.PO_ISSUED
@@ -451,6 +557,10 @@ async def wipe_demo_data(db: AsyncSession) -> None:
     # Delete Purchase Orders
     del_po = await db.execute(delete(PurchaseOrder))
     print(f"  - Deleted {del_po.rowcount} Purchase Orders")
+    
+    # Delete Vendor Quotes (after POs, which reference them via SET NULL)
+    del_vq = await db.execute(delete(VendorQuote))
+    print(f"  - Deleted {del_vq.rowcount} Vendor Quotes")
     
     # Delete PR Line Items
     del_items = await db.execute(delete(PRLineItem))

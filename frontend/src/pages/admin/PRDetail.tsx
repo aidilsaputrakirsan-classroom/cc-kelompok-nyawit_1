@@ -8,14 +8,13 @@ import type {
   PurchaseRequisition,
   PurchaseOrder,
   GRNDocument,
+  VendorQuote,
   APIResponse,
-  PaginatedResponse,
   PRStatus,
 } from "../../types";
 
 const STATUS_TIMELINE: { key: PRStatus; label: string }[] = [
   { key: "SUBMITTED", label: "Submitted" },
-  { key: "UNDER_REVIEW", label: "Under Review" },
   { key: "APPROVED", label: "Approved" },
   { key: "PO_ISSUED", label: "PO Issued" },
   { key: "DOC_SUBMITTED", label: "Doc Submitted" },
@@ -42,9 +41,10 @@ export default function AdminPRDetail() {
 
   // Modal states
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewAction, setReviewAction] = useState<"APPROVED" | "REJECTED">("APPROVED");
+  const [reviewAction, setReviewAction] = useState<"APPROVE" | "REJECT">("APPROVE");
   const [reviewNote, setReviewNote] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
 
   const [showPOModal, setShowPOModal] = useState(false);
   const [poSubmitting, setPoSubmitting] = useState(false);
@@ -53,22 +53,21 @@ export default function AdminPRDetail() {
   const [verifyNote, setVerifyNote] = useState("");
   const [verifySubmitting, setVerifySubmitting] = useState(false);
 
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnNote, setReturnNote] = useState("");
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+
   // ── Fetch data ─────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      // Fetch PR from admin list (no admin detail endpoint)
-      const prRes = await api.get<PaginatedResponse<PurchaseRequisition>>(
-        "/requisitions/admin/",
-        { params: { page: 1, per_page: 100 } }
+      // Fetch PR detail (dedicated admin detail endpoint)
+      const prRes = await api.get<APIResponse<PurchaseRequisition>>(
+        `/requisitions/admin/${id}`
       );
-      const found = prRes.data.data.find((p) => p.id === Number(id));
-      if (!found) {
-        setError("PR tidak ditemukan.");
-        return;
-      }
+      const found = prRes.data.data;
       setPr(found);
 
       // Fetch PO if applicable
@@ -78,39 +77,22 @@ export default function AdminPRDetail() {
         )
       ) {
         try {
-          const poRes = await api.get<PaginatedResponse<PurchaseOrder>>(
-            "/purchase-orders/",
-            { params: { page: 1, per_page: 100 } }
+          const poRes = await api.get<APIResponse<PurchaseOrder>>(
+            `/purchase-orders/by-pr/${found.id}`
           );
-          const foundPo = poRes.data.data.find((p) => p.pr_id === found.id);
-          if (foundPo) {
-            setPo(foundPo);
-            // If DOC_SUBMITTED or later, try to fetch GRN info
-            if (
-              ["DOC_SUBMITTED", "VERIFIED", "CLOSED"].includes(found.status)
-            ) {
-              try {
-                // Try fetching GRN by PO ID (custom endpoint or mock)
-                const grnRes = await api.get<APIResponse<GRNDocument>>(
-                  `/grn/${foundPo.id}`
-                );
-                setGrn(grnRes.data.data);
-              } catch {
-                // GRN detail endpoint may not exist yet.
-                // Create a placeholder GRN with the PO ID so verify can work.
-                // The GRN ID is typically equal to PO ID for 1:1 relationship.
-                // We use po.id as grn.id as a best-effort guess.
-                setGrn({
-                  id: foundPo.id,
-                  po_id: foundPo.id,
-                  requester_id: found.requester_id,
-                  receipt_url: null,
-                  commercial_invoice_url: null,
-                  goods_photo_url: null,
-                  submitted_at: new Date().toISOString(),
-                  verification_note: null,
-                });
-              }
+          const foundPo = poRes.data.data;
+          setPo(foundPo);
+
+          // If DOC_SUBMITTED or later, fetch the real GRN by PO id
+          if (["DOC_SUBMITTED", "VERIFIED", "CLOSED"].includes(found.status)) {
+            try {
+              const grnRes = await api.get<APIResponse<GRNDocument>>(
+                `/grn/by-po/${foundPo.id}`
+              );
+              setGrn(grnRes.data.data);
+            } catch {
+              // GRN not found yet — leave as null
+              setGrn(null);
             }
           }
         } catch {
@@ -128,7 +110,7 @@ export default function AdminPRDetail() {
     fetchData();
   }, [fetchData]);
 
-  // ── Review (Approve/Reject) ────────────────────────────────────
+  // ── Review (Approve+Issue PO / Reject) ─────────────────────────
   const handleReview = async (e: FormEvent) => {
     e.preventDefault();
     if (!reviewNote.trim()) {
@@ -138,10 +120,14 @@ export default function AdminPRDetail() {
     setReviewSubmitting(true);
     try {
       await api.put(`/requisitions/admin/${id}/review`, {
-        status: reviewAction,
+        action: reviewAction,
         approval_note: reviewNote.trim(),
+        ...(reviewAction === "APPROVE"
+          ? { selected_vendor_quote_id: selectedVendorId }
+          : {}),
       });
-      const label = reviewAction === "APPROVED" ? "disetujui" : "ditolak";
+      const label =
+        reviewAction === "APPROVE" ? "disetujui & PO diterbitkan" : "ditolak";
       showToast("success", `PR berhasil ${label}.`);
       setShowReviewModal(false);
       setReviewNote("");
@@ -217,6 +203,37 @@ export default function AdminPRDetail() {
     }
   };
 
+  // ── Return GRN ─────────────────────────────────────────────────
+  const handleReturnGRN = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!returnNote.trim()) {
+      showToast("error", "Alasan pengembalian wajib diisi.");
+      return;
+    }
+    if (!grn) {
+      showToast("error", "Data GRN tidak ditemukan.");
+      return;
+    }
+    setReturnSubmitting(true);
+    try {
+      await api.put(`/grn/admin/${grn.id}/return`, {
+        verification_note: returnNote.trim(),
+      });
+      showToast("success", "GRN dikembalikan ke requester untuk diperbaiki.");
+      setShowReturnModal(false);
+      setReturnNote("");
+      invalidate();
+      await fetchData();
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail ?? "Gagal mengembalikan GRN.";
+      showToast("error", msg);
+    } finally {
+      setReturnSubmitting(false);
+    }
+  };
+
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -242,6 +259,20 @@ export default function AdminPRDetail() {
   const canReview = pr.status === "SUBMITTED";
   const canIssuePO = pr.status === "APPROVED";
   const canVerifyGRN = pr.status === "DOC_SUBMITTED" || pr.status === "VERIFIED";
+  const vendorQuotes: VendorQuote[] = pr.vendor_quotes ?? [];
+
+  const openApproveModal = () => {
+    setReviewAction("APPROVE");
+    setReviewNote("");
+    const recommended = vendorQuotes.find((v) => v.is_recommended);
+    setSelectedVendorId(recommended ? recommended.id : null);
+    setShowReviewModal(true);
+  };
+  const openRejectModal = () => {
+    setReviewAction("REJECT");
+    setReviewNote("");
+    setShowReviewModal(true);
+  };
 
   return (
     <div className="page">
@@ -404,6 +435,52 @@ export default function AdminPRDetail() {
         </div>
       )}
 
+      {/* Vendor Comparison */}
+      {vendorQuotes.length > 0 && (
+        <div className="detail-card">
+          <div className="line-items-header">
+            <h3>Perbandingan Vendor</h3>
+            <span className="line-items-count">{vendorQuotes.length} vendor</span>
+          </div>
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Vendor</th>
+                  <th>Kontak</th>
+                  <th className="text-right">Harga</th>
+                  <th>Tgl Survei</th>
+                  <th>Bukti</th>
+                  <th>Rekomendasi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vendorQuotes.map((v) => (
+                  <tr key={v.id}>
+                    <td>{v.vendor_name}</td>
+                    <td>{v.vendor_contact}</td>
+                    <td className="text-right font-mono">
+                      {formatCurrency(v.quoted_price)}
+                    </td>
+                    <td>{v.survey_date}</td>
+                    <td>
+                      <a
+                        href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${v.survey_evidence_url ?? ''}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Lihat
+                      </a>
+                    </td>
+                    <td>{v.is_recommended ? "✓" : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* PO Info */}
       {po && (
         <div className="detail-card">
@@ -474,24 +551,10 @@ export default function AdminPRDetail() {
       <div className="action-bar">
         {canReview && (
           <>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setReviewAction("APPROVED");
-                setReviewNote("");
-                setShowReviewModal(true);
-              }}
-            >
-              Approve
+            <button className="btn btn-primary" onClick={openApproveModal}>
+              Approve &amp; Terbitkan PO
             </button>
-            <button
-              className="btn btn-outline"
-              onClick={() => {
-                setReviewAction("REJECTED");
-                setReviewNote("");
-                setShowReviewModal(true);
-              }}
-            >
+            <button className="btn btn-outline" onClick={openRejectModal}>
               Reject
             </button>
           </>
@@ -515,6 +578,17 @@ export default function AdminPRDetail() {
             {pr.status === "DOC_SUBMITTED" ? "Verify GRN" : "Close GRN"}
           </button>
         )}
+        {pr.status === "DOC_SUBMITTED" && (
+          <button
+            className="btn btn-outline"
+            onClick={() => {
+              setReturnNote("");
+              setShowReturnModal(true);
+            }}
+          >
+            Kembalikan GRN
+          </button>
+        )}
       </div>
 
       {/* Review Modal */}
@@ -523,7 +597,7 @@ export default function AdminPRDetail() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                {reviewAction === "APPROVED" ? "Approve" : "Reject"} PR
+                {reviewAction === "APPROVE" ? "Approve & Terbitkan PO" : "Reject"} PR
               </h3>
               <button
                 className="modal-close"
@@ -535,13 +609,37 @@ export default function AdminPRDetail() {
             <form onSubmit={handleReview}>
               <div className="modal-body">
                 <p className="text-muted" style={{ marginBottom: "1rem" }}>
-                  {reviewAction === "APPROVED"
-                    ? "Anda akan menyetujui PR ini. Berikan catatan approval."
+                  {reviewAction === "APPROVE"
+                    ? "Menyetujui PR ini akan sekaligus menerbitkan PO untuk vendor terpilih. Pilih vendor dan berikan catatan."
                     : "Anda akan menolak PR ini. Berikan alasan penolakan."}
                 </p>
+
+                {reviewAction === "APPROVE" && vendorQuotes.length > 0 && (
+                  <div className="form-group">
+                    <label>Vendor Terpilih *</label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      {vendorQuotes.map((v) => (
+                        <label
+                          key={v.id}
+                          style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+                        >
+                          <input
+                            type="radio"
+                            name="selected_vendor"
+                            checked={selectedVendorId === v.id}
+                            onChange={() => setSelectedVendorId(v.id)}
+                          />
+                          {v.vendor_name} — {formatCurrency(v.quoted_price)}
+                          {v.is_recommended && " (Rekomendasi)"}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>
-                    {reviewAction === "APPROVED"
+                    {reviewAction === "APPROVE"
                       ? "Catatan Approval *"
                       : "Alasan Penolakan *"}
                   </label>
@@ -549,7 +647,7 @@ export default function AdminPRDetail() {
                     value={reviewNote}
                     onChange={(e) => setReviewNote(e.target.value)}
                     placeholder={
-                      reviewAction === "APPROVED"
+                      reviewAction === "APPROVE"
                         ? "Catatan persetujuan..."
                         : "Alasan penolakan..."
                     }
@@ -573,8 +671,8 @@ export default function AdminPRDetail() {
                 >
                   {reviewSubmitting
                     ? "Memproses..."
-                    : reviewAction === "APPROVED"
-                      ? "Approve"
+                    : reviewAction === "APPROVE"
+                      ? "Approve & Terbitkan PO"
                       : "Reject"}
                 </button>
               </div>
@@ -650,7 +748,7 @@ export default function AdminPRDetail() {
                     <ul style={{ paddingLeft: "1.25rem", marginTop: "0.5rem" }}>
                       <li>
                         <a
-                          href={grn.commercial_invoice_url ?? "#"}
+                          href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.commercial_invoice_url ?? ''}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -659,7 +757,7 @@ export default function AdminPRDetail() {
                       </li>
                       <li>
                         <a
-                          href={grn.goods_photo_url ?? "#"}
+                          href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.goods_photo_url ?? ''}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -698,6 +796,58 @@ export default function AdminPRDetail() {
                     : pr.status === "DOC_SUBMITTED"
                       ? "Verifikasi"
                       : "Tutup"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Return GRN Modal */}
+      {showReturnModal && (
+        <div className="modal-overlay" onClick={() => setShowReturnModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Kembalikan GRN</h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowReturnModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleReturnGRN}>
+              <div className="modal-body">
+                <p className="text-muted" style={{ marginBottom: "1rem" }}>
+                  Dokumen akan dikembalikan ke requester. Status PR kembali ke
+                  PO_ISSUED agar requester dapat meng-upload ulang. Berikan alasan
+                  pengembalian.
+                </p>
+                <div className="form-group">
+                  <label>Alasan Pengembalian *</label>
+                  <textarea
+                    value={returnNote}
+                    onChange={(e) => setReturnNote(e.target.value)}
+                    placeholder="Contoh: Foto barang buram, invoice tidak terbaca..."
+                    rows={3}
+                    maxLength={2000}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowReturnModal(false)}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={returnSubmitting}
+                >
+                  {returnSubmitting ? "Memproses..." : "Kembalikan"}
                 </button>
               </div>
             </form>

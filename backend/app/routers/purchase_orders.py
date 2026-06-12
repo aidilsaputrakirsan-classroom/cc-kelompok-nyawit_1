@@ -193,3 +193,65 @@ async def list_purchase_orders(
             total_pages=total_pages,
         ),
     )
+
+
+# ── GET /{po_id} ──────────────────────────────────────────────────
+@router.get(
+    "/{po_id}",
+    summary="Detail Purchase Order (admin only)",
+)
+async def get_purchase_order_detail(
+    po_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(["admin"])),
+):
+    """
+    Admin melihat detail satu PO berdasarkan ID.
+    """
+    result = await db.execute(
+        select(PurchaseOrder).where(PurchaseOrder.id == po_id)
+    )
+    po = result.scalar_one_or_none()
+
+    if po is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Order tidak ditemukan",
+        )
+
+    return APIResponse(
+        success=True,
+        data=POOut.model_validate(po).model_dump(mode="json"),
+        message="OK",
+    )
+
+
+# ── GET /by-pr/{pr_id} ────────────────────────────────────────────
+@router.get(
+    "/by-pr/{pr_id}",
+    summary="Detail Purchase Order berdasarkan PR ID (admin only)",
+)
+async def get_purchase_order_by_pr(
+    pr_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role(["admin"])),
+):
+    """
+    Admin mengambil PO yang terhubung ke sebuah PR.
+    """
+    result = await db.execute(
+        select(PurchaseOrder).where(PurchaseOrder.pr_id == pr_id)
+    )
+    po = result.scalar_one_or_none()
+
+    if po is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Order belum diterbitkan untuk PR ini",
+        )
+
+    return APIResponse(
+        success=True,
+        data=POOut.model_validate(po).model_dump(mode="json"),
+        message="OK",
+    )
