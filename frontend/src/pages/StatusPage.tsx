@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { GATEWAY_URL } from "../config/gateway";
-import { gatewayFetch } from "../utils/gatewayFetch";
-import { SERVICE_UNAVAILABLE_MESSAGE } from "../utils/apiError";
+
+const GATEWAY_URL =
+  import.meta.env.VITE_GATEWAY_URL || "http://localhost";
 
 interface HealthData {
   status: string;
@@ -49,17 +49,15 @@ function ServiceCard({
 
   const fetchStatus = useCallback(async () => {
     try {
-      const path = healthUrl.replace(GATEWAY_URL, "");
-      const res = await gatewayFetch(path);
+      const res = await fetch(healthUrl);
       setHealth(await res.json());
     } catch {
-      setHealth({ status: "unreachable", message: SERVICE_UNAVAILABLE_MESSAGE });
+      setHealth({ status: "unreachable" });
     }
 
     if (metricsUrl) {
       try {
-        const path = metricsUrl.replace(GATEWAY_URL, "");
-        const res = await gatewayFetch(path);
+        const res = await fetch(metricsUrl);
         setMetrics(await res.json());
       } catch {
         setMetrics(null);

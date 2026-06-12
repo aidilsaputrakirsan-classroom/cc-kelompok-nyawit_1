@@ -9,7 +9,6 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { loginRequest, logoutRequest } from "../services/auth";
 import api from "../services/api";
-import { getFriendlyApiErrorMessage } from "../utils/apiError";
 import type { User, UserRole, APIResponse } from "../types";
 
 interface AuthContextType {
@@ -70,7 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           navigate("/requester/dashboard", { replace: true });
         }
       } catch (err: unknown) {
-        setError(getFriendlyApiErrorMessage(err));
+        const msg =
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message ?? "Login gagal. Periksa email dan password.";
+        setError(msg);
       } finally {
         setLoading(false);
       }

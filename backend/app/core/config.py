@@ -15,10 +15,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/sicure_db"
 
     # ── JWT ───────────────────────────────────────────────────────
-    # Mendukung nama variabel dari DeployCC / Railway (SECRET_KEY, ALGORITHM, ...)
-    # maupun nama asli (JWT_SECRET, JWT_ALGORITHM, ...)
+    # Mendukung nama variabel dari DeployCC (SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES)
+    # maupun nama asli (JWT_SECRET, JWT_ALGORITHM, JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     JWT_SECRET: str = "change-me"
-    SECRET_KEY: str = ""  # fallback dari DeployCC / Railway
+    SECRET_KEY: str = ""  # fallback dari DeployCC
     JWT_REFRESH_SECRET: str = "change-me-refresh"
     JWT_ALGORITHM: str = "HS256"
     ALGORITHM: str = ""  # fallback dari DeployCC
@@ -27,8 +27,7 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7          # refresh token: 7 hari
 
     # ── CORS ──────────────────────────────────────────────────────
-    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
-    CORS_ORIGINS: str = ""  # fallback Railway / Modul 11
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
 
     # ── File Upload ───────────────────────────────────────────────
     UPLOAD_DIR: str = "./uploads"
@@ -36,12 +35,14 @@ class Settings(BaseSettings):
 
     # ── Environment ───────────────────────────────────────────────
     APP_ENV: str = "development"  # "development" | "production"
-    ENVIRONMENT: str = ""  # fallback dari DeployCC / Railway
+    ENVIRONMENT: str = ""  # fallback dari DeployCC
 
     @model_validator(mode="after")
     def _resolve_deploycc_aliases(self) -> "Settings":
         """
-        Resolve nama variabel dari DeployCC / Railway ke nama yang dipakai aplikasi.
+        Resolve nama variabel dari DeployCC ke nama yang dipakai aplikasi.
+        DeployCC generate: SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, ENVIRONMENT
+        Aplikasi pakai: JWT_SECRET, JWT_ALGORITHM, JWT_ACCESS_TOKEN_EXPIRE_MINUTES, APP_ENV
         """
         # DATABASE_URL: pastikan pakai asyncpg driver
         if self.DATABASE_URL.startswith("postgresql://"):
@@ -68,10 +69,6 @@ class Settings(BaseSettings):
         # APP_ENV ← ENVIRONMENT
         if self.ENVIRONMENT and self.APP_ENV == "development":
             self.APP_ENV = self.ENVIRONMENT
-
-        # ALLOWED_ORIGINS ← CORS_ORIGINS (Railway / Modul 11)
-        if self.CORS_ORIGINS:
-            self.ALLOWED_ORIGINS = self.CORS_ORIGINS
 
         return self
 
@@ -100,7 +97,7 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins_list(self) -> list[str]:
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
 
     @property
     def is_production(self) -> bool:

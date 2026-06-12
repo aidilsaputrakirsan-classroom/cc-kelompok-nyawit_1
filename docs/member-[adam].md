@@ -1,1 +1,0 @@
-"Nama: [Andi Adam Firdaus] | NIM: [10211014] | Peran: [Lead DevOps]" 

@@ -468,5 +468,3 @@ Internal project — Universitas.
 - [Dokumentasi UI testing](docs/testing/ui-test-results.md)
 - [Testing Guide](docs/testing/testing-guide.md)
 - [Dokumentasi perbandingan ukuran image](docs/architecture/image-comparison.md)
-- [Modul 11: deployment guide Railway](docs/deployment-guide.md)
-- [Modul 11: production smoke test](docs/production-test.md)

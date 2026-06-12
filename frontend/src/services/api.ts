@@ -1,14 +1,7 @@
 import axios from "axios";
-import { API_BASE_URL } from "../config/gateway";
-import {
-  getFriendlyApiErrorMessage,
-  isServiceUnavailable,
-  SERVICE_UNAVAILABLE_MESSAGE,
-} from "../utils/apiError";
-import { notifyApiError } from "../utils/apiErrorEvents";
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:9395/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -27,6 +20,7 @@ api.interceptors.request.use(
 );
 
 // ── Auto-refresh on 401 ──────────────────────────────────────────
+// Track whether a refresh is already in progress to avoid duplicate calls
 let isRefreshing = false;
 let pendingRequests: Array<{
   resolve: (token: string) => void;
@@ -49,6 +43,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Only attempt refresh for 401 errors, and not for auth endpoints themselves
     const isAuthEndpoint =
       originalRequest?.url?.includes("/auth/login") ||
       originalRequest?.url?.includes("/auth/refresh") ||
@@ -58,6 +53,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem("refresh_token");
 
       if (!refreshToken) {
+        // No refresh token — clear everything and redirect to login
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         localStorage.removeItem("user");
@@ -67,6 +63,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
+      // If a refresh is already in progress, queue this request
       if (isRefreshing) {
         return new Promise<string>((resolve, reject) => {
           pendingRequests.push({ resolve, reject });
@@ -80,16 +77,23 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await api.post("/auth/refresh", { refresh_token: refreshToken });
-        const { access_token, refresh_token: newRefresh } = res.data.data;
+        // Call refresh endpoint directly (not through this interceptor)
+        const res = await axios.post(
+          `${api.defaults.baseURL}/auth/refresh`,
+          { refresh_token: refreshToken },
+          { headers: { "Content-Type": "application/json" } }
+        );
 
+        const { access_token, refresh_token: newRefresh } = res.data.data;
         localStorage.setItem("access_token", access_token);
         localStorage.setItem("refresh_token", newRefresh);
 
+        // Retry the original request with the new token
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         processPendingRequests(access_token);
         return api(originalRequest);
       } catch (refreshError) {
+        // Refresh failed — clear everything and redirect to login
         processPendingRequests(null, refreshError);
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
@@ -103,6 +107,7 @@ api.interceptors.response.use(
       }
     }
 
+    // For non-401 errors or auth endpoint 401s, just reject
     if (error.response?.status === 401 && !originalRequest._retry) {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
@@ -110,18 +115,6 @@ api.interceptors.response.use(
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
-    }
-
-    const status = error.response?.status;
-    const shouldNotifyGlobally =
-      !originalRequest?.skipGlobalErrorHandler &&
-      (isServiceUnavailable(status) || status === 429 || (status !== undefined && status >= 500));
-
-    if (shouldNotifyGlobally) {
-      const message = isServiceUnavailable(status)
-        ? SERVICE_UNAVAILABLE_MESSAGE
-        : getFriendlyApiErrorMessage(error);
-      notifyApiError(message);
     }
 
     return Promise.reject(error);

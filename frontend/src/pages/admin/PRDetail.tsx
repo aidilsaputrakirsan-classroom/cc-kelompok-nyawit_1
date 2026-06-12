@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../../services/api";
-import { resolveUploadUrl } from "../../config/gateway";
 import { useToast } from "../../contexts/ToastContext";
 import { useProcurement } from "../../contexts/ProcurementContext";
 import StatusBadge from "../../components/StatusBadge";
@@ -437,7 +436,7 @@ export default function AdminPRDetail() {
               <span className="detail-label">Commercial Invoice</span>
               <span className="detail-value">
                 <a 
-                  href={resolveUploadUrl(grn.commercial_invoice_url)}
+                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.commercial_invoice_url ?? ''}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
@@ -449,7 +448,7 @@ export default function AdminPRDetail() {
               <span className="detail-label">Foto Barang</span>
               <span className="detail-value">
                 <a 
-                  href={resolveUploadUrl(grn.goods_photo_url)}
+                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.goods_photo_url ?? ''}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                 >

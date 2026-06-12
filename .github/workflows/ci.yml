@@ -9,7 +9,6 @@
 # 1. test-backend: Install deps + run pytest (async database tests)
 # 2. test-frontend: Install deps + run vitest + build
 # 3. build-docker: Build Docker images (hanya jika tests PASS)
-# 4. deploy: Deploy ke Railway (hanya push ke main)
 #
 # Optimizations:
 # - Caching untuk pip dan npm dependencies
@@ -161,71 +160,3 @@ jobs:
           docker images sicure-backend:ci --format "{{.Size}}"
           echo "Frontend image size:"
           docker images sicure-frontend:ci --format "{{.Size}}"
-
-  # ================================
-  # JOB 4: Deploy ke Railway (CD)
-  # ================================
-  deploy:
-    name: 🚀 Deploy to Railway
-    runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend, build-docker]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    timeout-minutes: 15
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🚂 Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: 🚀 Deploy Backend
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          cd backend
-          railway up --service backend --detach
-
-      - name: 🚀 Deploy Frontend
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          cd frontend
-          railway up --service frontend --detach
-
-      - name: 🏥 Health check
-        env:
-          RAILWAY_BACKEND_URL: ${{ secrets.RAILWAY_BACKEND_URL }}
-        run: |
-          if [ -z "$RAILWAY_BACKEND_URL" ]; then
-            echo "⚠️ RAILWAY_BACKEND_URL belum di-set — lewati health check"
-            exit 0
-          fi
-
-          echo "Waiting for deployment to be ready..."
-          sleep 30
-
-          HEALTH_URL="${RAILWAY_BACKEND_URL%/}/health"
-          HTTP_STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" "$HEALTH_URL")
-          echo "Response ($HTTP_STATUS):"
-          cat /tmp/health.json || true
-
-          if [ "$HTTP_STATUS" == "200" ]; then
-            echo "✅ Health check passed!"
-          else
-            echo "❌ Health check FAILED! (HTTP $HTTP_STATUS)"
-            exit 1
-          fi
-
-      - name: ✅ Deploy summary
-        env:
-          RAILWAY_BACKEND_URL: ${{ secrets.RAILWAY_BACKEND_URL }}
-          RAILWAY_FRONTEND_URL: ${{ secrets.RAILWAY_FRONTEND_URL }}
-        run: |
-          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend | ${RAILWAY_BACKEND_URL:-belum dikonfigurasi} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend | ${RAILWAY_FRONTEND_URL:-belum dikonfigurasi} |" >> $GITHUB_STEP_SUMMARY
