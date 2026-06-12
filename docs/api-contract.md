@@ -126,12 +126,6 @@ Deskripsi: Aggregated Health Check Service.
 
 ---
 
-## GET /api/v1/health
-
-Deskripsi: API Health Check Procurement Service.
-
----
-
 # Purchase Requisition API
 
 Base Path:

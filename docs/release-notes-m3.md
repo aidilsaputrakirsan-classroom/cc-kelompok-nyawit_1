@@ -143,8 +143,7 @@ PO_ISSUED
 Requester Upload GRN
     ↓
 DOC_SUBMITTED
-    ↓co
-    
+    ↓
 Admin Verification
     ↓
 VERIFIED
