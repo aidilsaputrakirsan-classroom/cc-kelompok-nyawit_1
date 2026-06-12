@@ -243,28 +243,22 @@ DRAFT ──> SUBMITTED ──> APPROVED ──> PO_ISSUED ──> DOC_SUBMITTED
 
 ```
 sicure/
-├── package.json                 # Root scripts (dev, build, db:migrate, db:seed, test)
-├── README-example.md            # Dokumentasi lengkap
-├── DOCKER_GUIDE.md              # Panduan Docker lengkap
-├── docker-compose.yml           # Docker Compose configuration (wrapper)
-├── docker-compose.prod.yml      # Production overrides (wrapper)
+├── README.md                    # Dokumentasi utama
+├── docker-compose.yml           # Docker Compose (dev: backend + frontend + postgres)
+├── docker-compose.prod.yml      # Production overrides
+├── Makefile                     # Helper command (up/down/logs/seed)
 ├── .env.example                 # Template environment variables
 ├── .dockerignore                # Docker ignore rules
 │
-├── docker/                      # Docker & Infrastructure configurations
-│   ├── README.md                # Docker documentation
-│   ├── compose/                 # Docker Compose files
-│   │   ├── docker-compose.yml
-│   │   └── docker-compose.prod.yml
-│   ├── dockerfiles/             # Dockerfile copies for reference
-│   │   ├── Dockerfile.backend
-│   │   ├── Dockerfile.frontend
-│   │   └── Dockerfile.frontend.dev
-│   └── scripts/                 # Docker management scripts
-│       ├── start-dev.sh
-│       ├── stop-dev.sh
-│       ├── build-and-push.sh
-│       └── deploy-from-hub.sh
+├── docker/                      # Referensi konfigurasi Docker tambahan
+│   ├── README.md
+│   ├── ARCHITECTURE.md
+│   ├── compose/
+│   ├── dockerfiles/
+│   └── scripts/
+│
+├── docs/                        # Dokumentasi (deployment, testing, dll.)
+│   └── railway-deployment.md    # Panduan deploy ke Railway
 │
 ├── backend/
 │   ├── Dockerfile               # Backend Docker image
@@ -376,17 +370,27 @@ Dokumentasi interaktif: `http://localhost:8000/docs` (Swagger UI)
 
 ## Scripts
 
-Dari root project (`sicure/`):
+Aplikasi dijalankan via Docker Compose (Makefile) atau manual per service.
 
-| Script           | Perintah              | Deskripsi                                    |
-|------------------|-----------------------|----------------------------------------------|
-| `npm run dev`    | concurrently          | Jalankan backend + frontend bersamaan        |
-| `npm run dev:frontend` | vite             | Jalankan frontend saja                       |
-| `npm run dev:backend`  | uvicorn          | Jalankan backend saja                        |
-| `npm run build`  | tsc + vite build      | Build frontend untuk production              |
-| `npm run db:migrate` | alembic upgrade head | Jalankan migrasi database                 |
-| `npm run db:seed` | python -m app.seed   | Seed database dengan user demo               |
-| `npm run test`   | pytest                | Jalankan test suite backend                  |
+**Via Makefile (dari root project):**
+
+| Perintah     | Deskripsi                                          |
+|--------------|----------------------------------------------------|
+| `make up`    | Start backend + frontend + postgres (Docker)       |
+| `make down`  | Stop & hapus container                             |
+| `make logs`  | Stream logs semua service                          |
+| `make seed`  | Seed database (user demo)                          |
+| `make ps`    | Status container                                   |
+
+**Manual (tanpa Docker):**
+
+| Komponen | Perintah                                                        |
+|----------|-----------------------------------------------------------------|
+| Backend  | `cd backend && uvicorn app.main:app --reload --port 8000`       |
+| Frontend | `cd frontend && npm run dev`                                    |
+| Migrasi  | `cd backend && alembic upgrade head`                            |
+| Seed     | `cd backend && python -m app.seed`                              |
+| Test     | `cd backend && pytest`                                          |
 
 ---
 
@@ -466,9 +470,9 @@ Panduan lengkap (langkah dashboard, environment variables, troubleshooting): [do
 
 | Service | URL |
 |---------|-----|
-| Frontend | _(isi setelah generate domain)_ |
-| Backend API | _(isi setelah generate domain)_ |
-| API Docs (Swagger) | _(backend-url)_/docs |
+| Frontend | https://sicure-app.up.railway.app |
+| Backend API | https://sicure-api.up.railway.app |
+| API Docs (Swagger) | https://sicure-api.up.railway.app/docs |
 
 ---
 
