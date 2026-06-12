@@ -458,6 +458,20 @@ Fitur-fitur yang direncanakan untuk pengembangan selanjutnya:
 
 ---
 
+## 🌐 Deployment (Railway)
+
+Aplikasi ini di-deploy sebagai **monolith** ke [Railway](https://railway.app): 1 backend service + 1 frontend service + 1 PostgreSQL dalam satu project. Deploy otomatis setiap push/merge ke `main` (integrasi GitHub bawaan Railway). CI (`ci.yml`) tetap berjalan untuk test.
+
+Panduan lengkap (langkah dashboard, environment variables, troubleshooting): [docs/railway-deployment.md](docs/railway-deployment.md).
+
+| Service | URL |
+|---------|-----|
+| Frontend | _(isi setelah generate domain)_ |
+| Backend API | _(isi setelah generate domain)_ |
+| API Docs (Swagger) | _(backend-url)_/docs |
+
+---
+
 ## License
 
 Internal project — Universitas.
