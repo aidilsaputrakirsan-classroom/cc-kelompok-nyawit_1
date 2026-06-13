@@ -270,6 +270,34 @@ dan build image Docker pada setiap push/PR ke `main`.
 
 ---
 
+## 🔄 CI/CD Pipeline
+
+Pipeline CI (`.github/workflows/ci.yml`) berjalan otomatis pada setiap **push** dan
+**Pull Request** ke branch `main`.
+
+### Jobs
+
+- 🐍 **Test Backend** — `pytest` + coverage (gagal bila coverage < 40%).
+- ⚛️ **Test Frontend** — `vitest` + build Vite.
+- 🐳 **Build Docker** — build image backend & frontend (hanya jalan bila kedua test lulus).
+
+### Alur
+
+```text
+Push / PR ke main
+        │
+        ▼
+   GitHub Actions
+        ├── 🐍 Test Backend  (pytest + coverage)
+        ├── ⚛️ Test Frontend (vitest + build)
+        └── 🐳 Build Docker  (butuh kedua test PASS)
+```
+
+Deployment ke Railway berjalan otomatis melalui integrasi GitHub–Railway setiap ada
+merge ke `main` (di luar workflow CI di atas).
+
+---
+
 ## 🚀 Deployment (Railway)
 
 Aplikasi di-deploy sebagai **monolith** ke [Railway](https://railway.app):
