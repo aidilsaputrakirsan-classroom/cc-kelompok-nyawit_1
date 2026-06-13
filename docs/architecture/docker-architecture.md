@@ -1,5 +1,10 @@
 # Docker Architecture — SICURE App
 
+> ⚠️ **Catatan:** dokumen ini berisi catatan eksplorasi awal dan beberapa nilai
+> sudah tidak sesuai dengan kode terbaru (mis. port, kredensial contoh). Untuk
+> arsitektur **aktual** yang berjalan saat ini, lihat
+> [system-architecture.md](system-architecture.md).
+
 ## Overview
 
 Aplikasi SICURE dibangun menggunakan arsitektur berbasis container dengan tiga layanan utama, yaitu frontend, backend, dan database. Ketiga layanan tersebut dijalankan secara terpisah namun saling terhubung melalui satu Docker network.
