@@ -6,7 +6,7 @@
 # - Pull Request ke branch main
 # 
 # Jobs:
-# 1. test-backend: Install deps + run pytest (async database tests)
+# 1. test-backend: Install deps + run pytest (unit + integration test, async DB)
 # 2. test-frontend: Install deps + run vitest + build
 # 3. build-docker: Build Docker images (hanya jika tests PASS)
 #
@@ -64,10 +64,13 @@ jobs:
           pip install -r requirements.txt
 
       - name: 🧪 Run tests with coverage
+        # Menjalankan unit test (aturan bisnis/util) + integration test
+        # (alur end-to-end auth → PR → PO → GRN) sekaligus, dengan coverage.
         run: |
           pytest \
             --cov=app \
             --cov-report=term-missing \
+            --cov-report=xml \
             --cov-fail-under=40 \
             --asyncio-mode=auto \
             -v
@@ -160,3 +163,50 @@ jobs:
           docker images sicure-backend:ci --format "{{.Size}}"
           echo "Frontend image size:"
           docker images sicure-frontend:ci --format "{{.Size}}"
+
+  # ================================
+  # JOB 4: Verify Deploy (CD)
+  # ================================
+  # Railway melakukan auto-deploy setiap merge ke `main` (lihat
+  # docs/railway-deployment.md). Job ini melengkapi tahap pipeline
+  # "checkout → test → build → deploy" dengan MEMBUKTIKAN hasil deploy
+  # benar-benar online: setelah build hijau, tunggu Railway selesai
+  # redeploy lalu cek health endpoint di production URL.
+  #
+  # Hanya berjalan pada push/merge ke `main` (bukan PR), karena hanya
+  # `main` yang ter-deploy ke produksi.
+  #
+  # URL diambil dari repository variable `PRODUCTION_API_URL`
+  # (Settings → Secrets and variables → Actions → Variables).
+  # Bila belum di-set, dipakai default domain dari README.
+  verify-deploy:
+    name: 🚀 Verify Production Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build-docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: ⏳ Wait for Railway auto-deploy
+        # Beri waktu Railway membangun & merilis image terbaru sebelum dicek.
+        run: sleep 60
+
+      - name: ❤️ Health check production URL
+        env:
+          API_URL: ${{ vars.PRODUCTION_API_URL || 'https://sicure-api.up.railway.app' }}
+        run: |
+          echo "Mengecek health di: $API_URL/health"
+          for attempt in $(seq 1 10); do
+            code=$(curl -s -o /tmp/health.json -w "%{http_code}" "$API_URL/health" || echo "000")
+            echo "Percobaan $attempt → HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "✅ Production sehat setelah deploy:"
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "Belum siap, tunggu 30 detik..."
+            sleep 30
+          done
+          echo "❌ Production URL tidak sehat setelah beberapa percobaan."
+          cat /tmp/health.json || true
+          exit 1

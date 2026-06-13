@@ -352,6 +352,9 @@ cc-kelompok-nyawit_1/
 
 ## 📚 Dokumentasi
 
+- [Arsitektur Sistem (diagram)](docs/architecture/system-architecture.md)
+- [API Contract](docs/api-contract.md)
+- [Release Notes](docs/release-notes.md)
 - [Panduan Deploy Railway](docs/railway-deployment.md)
 - [Arsitektur Docker](docs/architecture/docker-architecture.md)
 - [Perbandingan Ukuran Image](docs/architecture/image-comparison.md)
@@ -359,6 +362,7 @@ cc-kelompok-nyawit_1/
 - [Hasil Test API (Swagger)](docs/testing/api-test-result.md)
 - [Hasil UI Testing](docs/testing/ui-test-results.md)
 - [Git Workflow](docs/guides/git-workflow.md)
+- [Reflection Paper Anggota](docs/members/)
 
 ---
 
@@ -371,6 +375,7 @@ cc-kelompok-nyawit_1/
 4. **File Upload** — hanya JPG/PNG/PDF, maks 5MB/file; nama file di-sanitize + UUID prefix.
 5. **Password** — di-hash dengan bcrypt; tidak pernah disimpan plaintext.
 6. **Database** — gunakan kredensial kuat di produksi; jangan pakai user default tanpa password.
+7. **Container hardening** — image backend & frontend memakai **multi-stage build** (image akhir ramping, tanpa build tools). Backend berjalan sebagai **user non-root**.
 
 ---
 
