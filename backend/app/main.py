@@ -1,3 +1,7 @@
+import logging
+import time
+import uuid
+
 from fastapi import FastAPI, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -7,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.logging_config import correlation_id_ctx, setup_logging
 from app.db.session import get_db
 from app.routers import auth
 from app.routers import requisitions
@@ -15,11 +20,78 @@ from app.routers import purchase_orders
 from app.routers import grn
 from app.routers import grn_admin
 
+# ── Structured logging (JSON) ─────────────────────────────────────
+# Diaktifkan sedini mungkin agar log startup pun sudah berformat JSON.
+setup_logging(level="INFO")
+logger = logging.getLogger("sicure.request")
+
+# Nama header yang dipakai untuk membawa correlation ID antar service/klien.
+CORRELATION_ID_HEADER = "X-Correlation-ID"
+
 app = FastAPI(
     title="SiCure API",
     description="Sistem Procurement API",
     version="1.0.0",
 )
+
+
+# ── Correlation ID + request logging middleware ──────────────────
+@app.middleware("http")
+async def correlation_and_logging(request: Request, call_next):
+    """
+    Untuk setiap request:
+      1. Ambil correlation ID dari header (X-Correlation-ID / X-Request-ID)
+         atau generate baru bila tidak ada.
+      2. Simpan ke ContextVar agar muncul di semua log selama request ini.
+      3. Catat structured log saat request masuk & selesai (method, path,
+         status, durasi ms), lalu kembalikan correlation ID di response header.
+    """
+    correlation_id = (
+        request.headers.get(CORRELATION_ID_HEADER)
+        or request.headers.get("X-Request-ID")
+        or str(uuid.uuid4())
+    )
+    token = correlation_id_ctx.set(correlation_id)
+    start = time.perf_counter()
+
+    logger.info(
+        "request.start",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "client": request.client.host if request.client else None,
+        },
+    )
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.exception(
+            "request.error",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "duration_ms": duration_ms,
+            },
+        )
+        correlation_id_ctx.reset(token)
+        raise
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    logger.info(
+        "request.end",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
+
+    response.headers[CORRELATION_ID_HEADER] = correlation_id
+    correlation_id_ctx.reset(token)
+    return response
 
 # ── CORS middleware ───────────────────────────────────────────────
 # In production, only explicitly listed origins are allowed.
