@@ -91,9 +91,26 @@ async def list_all_requisitions(
     result = await db.execute(rows_q)
     prs = result.scalars().all()
 
+    # Fetch requester names for all PRs in this page
+    requester_ids = list({pr.requester_id for pr in prs})
+    if requester_ids:
+        users_result = await db.execute(
+            select(User).where(User.id.in_(requester_ids))
+        )
+        users_map = {u.id: u.full_name for u in users_result.scalars().all()}
+    else:
+        users_map = {}
+
+    # Add requester_name to each PR
+    prs_with_names = []
+    for pr in prs:
+        pr_dict = PROut.model_validate(pr).model_dump(mode="json")
+        pr_dict["requester_name"] = users_map.get(pr.requester_id)
+        prs_with_names.append(pr_dict)
+
     return PaginatedResponse(
         success=True,
-        data=[PROut.model_validate(pr).model_dump(mode="json") for pr in prs],
+        data=prs_with_names,
         message="OK",
         pagination=PaginationMeta(
             page=page,
@@ -179,6 +196,19 @@ async def review_requisition(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
 
     budget = compute_allocated_budget(selected, pr.total_amount)
+
+    # Update is_recommended flags based on admin's selection
+    # Reset all vendor quotes to not recommended
+    for quote in pr.vendor_quotes:
+        quote.is_recommended = False
+    
+    # Set the selected vendor as recommended (if there is a selected vendor)
+    if selected is not None:
+        # Find and mark the selected vendor quote as recommended
+        for quote in pr.vendor_quotes:
+            if quote.id == selected.id:
+                quote.is_recommended = True
+                break
 
     po = PurchaseOrder(
         po_number=_generate_po_number(),

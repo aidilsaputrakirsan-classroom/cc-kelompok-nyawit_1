@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { useToast } from "../../contexts/ToastContext";
 import { useProcurement } from "../../contexts/ProcurementContext";
 import type { PRLineItemInput, VendorQuoteInput } from "../../types";
+import { formatRupiah as _formatRupiah, parseRupiah } from "../../utils/formatHelpers";
 
 // Harus selaras dengan QUOTE_THRESHOLD di backend (default Rp 5.000.000)
 const QUOTE_THRESHOLD = 5_000_000;
@@ -38,6 +39,7 @@ export default function RequesterPRNew() {
   const [recommendedIdx, setRecommendedIdx] = useState<number>(0);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [rupiahInputs, setRupiahInputs] = useState<Record<number, string>>({});
 
   // ── Line item helpers ──────────────────────────────────────────
   const updateItem = (index: number, field: keyof PRLineItemInput, value: string | number) => {
@@ -61,6 +63,13 @@ export default function RequesterPRNew() {
     value: string | number
   ) => {
     setVendors((prev) => prev.map((v, i) => (i === index ? { ...v, [field]: value } : v)));
+  };
+  
+  const updateVendorPrice = (index: number, formattedValue: string) => {
+    // Remove formatting characters and parse to number
+    const numericValue = parseRupiah(formattedValue);
+    setRupiahInputs((prev) => ({ ...prev, [index]: formattedValue }));
+    updateVendor(index, "quoted_price", numericValue);
   };
   const addVendor = () => {
     setVendors((prev) => [...prev, { ...EMPTY_VENDOR }]);
@@ -322,10 +331,6 @@ export default function RequesterPRNew() {
               + Tambah Vendor
             </button>
           </div>
-          <p className="text-muted" style={{ marginBottom: "1rem" }}>
-            Minimal <strong>{requiredMinVendors()}</strong> vendor diperlukan untuk total{" "}
-            {formatCurrency(getTotal())}. Tandai satu vendor sebagai rekomendasi. Bukti survei: JPG/PNG/PDF (maks 5MB).
-          </p>
 
           {vendors.map((v, index) => (
             <div
@@ -377,12 +382,16 @@ export default function RequesterPRNew() {
               <div className="form-group">
                 <label>Harga Penawaran (Rp) *</label>
                 <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={v.quoted_price}
-                  onChange={(e) => updateVendor(index, "quoted_price", parseFloat(e.target.value) || 0)}
+                  type="text"
+                  value={rupiahInputs[index] || (v.quoted_price > 0 ? new Intl.NumberFormat('id-ID').format(v.quoted_price) : '')}
+                  onChange={(e) => updateVendorPrice(index, e.target.value)}
+                  placeholder="Ketik angka, contoh: 1500000"
                 />
+                {v.quoted_price > 0 && (
+                  <small style={{ fontSize: "0.875rem", marginTop: "0.25rem", display: "block", color: "#2563eb", fontWeight: 600 }}>
+                    Format Rupiah: {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v.quoted_price)}
+                  </small>
+                )}
               </div>
               <div className="form-group">
                 <label>Tanggal Survei *</label>
@@ -407,6 +416,14 @@ export default function RequesterPRNew() {
               </div>
             </div>
           ))}
+          
+          {/* Alert validation - positioned right before submit button */}
+          {vendors.length < requiredMinVendors() && (
+            <div className="alert alert-error" style={{ marginTop: "1rem" }}>
+              <strong>Perhatian:</strong> Minimal <strong>{requiredMinVendors()}</strong> penawaran vendor diperlukan untuk total{" "}
+              {formatCurrency(getTotal())}.
+            </div>
+          )}
         </div>
 
         {/* Submit */}

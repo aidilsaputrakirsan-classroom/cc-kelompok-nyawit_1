@@ -262,13 +262,15 @@ async def list_my_requisitions(
     per_page: int = Query(10, ge=1, le=100, description="Jumlah item per halaman"),
     status_filter: PRStatus | None = Query(None, alias="status", description="Filter berdasarkan status"),
     category: str | None = Query(None, description="Filter berdasarkan kategori item (mencari di nama item)"),
+    q: str | None = Query(None, description="Search by keyword in title or justification"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Menampilkan daftar PR milik requester yang sedang login.
-    Mendukung pagination dan filter berdasarkan status dan kategori.
+    Mendukung pagination, filter berdasarkan status dan kategori, serta pencarian bebas.
     Filter kategori akan mencari PR yang memiliki line items dengan nama mengandung kata kunci kategori.
+    Search (q) akan mencari PR dengan title atau justification yang mengandung keyword.
     """
     # Base query — only own PRs
     base = select(PurchaseRequisition).where(
@@ -277,6 +279,16 @@ async def list_my_requisitions(
 
     if status_filter is not None:
         base = base.where(PurchaseRequisition.status == status_filter)
+    
+    # Search by keyword in title or justification
+    if q:
+        from sqlalchemy import or_
+        base = base.where(
+            or_(
+                PurchaseRequisition.title.ilike(f"%{q}%"),
+                PurchaseRequisition.justification.ilike(f"%{q}%")
+            )
+        )
     
     # Filter by category - find PRs that have line items containing the category keyword
     if category is not None:
@@ -494,6 +506,157 @@ async def update_requisition(
             "Purchase Requisition berhasil direvisi dan diajukan ulang"
             if was_rejected
             else "Purchase Requisition berhasil diperbarui"
+        ),
+    )
+
+
+@router.put(
+    "/{pr_id}/vendors",
+    summary="Update vendor quotes untuk PR yang masih SUBMITTED",
+)
+async def update_vendor_quotes(
+    pr_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Requester mengedit vendor quotes pada PR yang masih berstatus SUBMITTED atau REJECTED.
+    Hanya pemilik PR yang bisa mengedit.
+    Mendukung file upload untuk survey evidence.
+    """
+    # Fetch PR with vendor quotes
+    result = await db.execute(
+        select(PurchaseRequisition)
+        .options(
+            selectinload(PurchaseRequisition.line_items),
+            selectinload(PurchaseRequisition.vendor_quotes),
+        )
+        .where(PurchaseRequisition.id == pr_id)
+    )
+    pr = result.scalar_one_or_none()
+
+    if pr is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Purchase Requisition tidak ditemukan",
+        )
+
+    if pr.requester_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak memiliki akses ke PR ini",
+        )
+
+    if pr.status not in (PRStatus.SUBMITTED, PRStatus.REJECTED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hanya PR berstatus SUBMITTED atau REJECTED yang bisa diedit",
+        )
+
+    # Parse multipart form data
+    form = await request.form()
+    vendor_quotes_json = form.get("vendor_quotes_json")
+
+    if not vendor_quotes_json:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Penawaran vendor (vendor_quotes_json) wajib diisi.",
+        )
+
+    try:
+        quotes_data = [VendorQuoteIn.model_validate(q) for q in json.loads(vendor_quotes_json)]
+    except (json.JSONDecodeError, ValidationError, TypeError) as e:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"Format penawaran vendor tidak valid: {e}"
+        )
+
+    if not quotes_data:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Minimal satu penawaran vendor diperlukan."
+        )
+
+    # Parse uploaded files
+    files: dict[int, UploadFile] = {}
+    for key, value in form.multi_items():
+        m = _VENDOR_FILE_RE.match(key)
+        if m and isinstance(value, UploadFile):
+            files[int(m.group(1))] = value
+
+    # Validate vendor rules
+    total = float(pr.total_amount)
+    threshold = Decimal(str(settings.QUOTE_THRESHOLD))
+    try:
+        validate_vendor_count(Decimal(str(total)), threshold, len(quotes_data))
+        validate_single_recommended([q.is_recommended for q in quotes_data])
+    except VendorQuoteError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+
+    # Check that each vendor has a file (either new upload or existing)
+    for idx in range(len(quotes_data)):
+        if idx not in files:
+            # Check if there's an existing file we can keep
+            existing_quote = pr.vendor_quotes[idx] if idx < len(pr.vendor_quotes) else None
+            if not existing_quote or not existing_quote.survey_evidence_url:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"Vendor #{idx + 1}: berkas bukti survei wajib diunggah.",
+                )
+
+    # Save existing file URLs before clearing
+    existing_file_urls = [q.survey_evidence_url for q in pr.vendor_quotes]
+
+    # Delete old vendor quotes and their files (only if new file uploaded)
+    saved_paths: list[str] = []
+    for quote in pr.vendor_quotes:
+        if quote.survey_evidence_url:
+            try:
+                Path(quote.survey_evidence_url).unlink(missing_ok=True)
+            except OSError:
+                pass
+    pr.vendor_quotes.clear()
+    await db.flush()
+
+    # Create new vendor quotes with uploaded files
+    for idx, quote_data in enumerate(quotes_data):
+        # Handle file upload
+        if idx in files:
+            evidence_url = await validate_and_save(files[idx], user_id=current_user.id, prefix="vendor_quotes")
+            saved_paths.append(evidence_url)
+        else:
+            # Keep existing file URL
+            evidence_url = existing_file_urls[idx] if idx < len(existing_file_urls) else None
+
+        quote = VendorQuote(
+            pr_id=pr.id,
+            vendor_name=quote_data.vendor_name,
+            vendor_contact=quote_data.vendor_contact,
+            quoted_price=quote_data.quoted_price,
+            survey_date=quote_data.survey_date,
+            survey_evidence_url=evidence_url,
+            is_recommended=quote_data.is_recommended,
+        )
+        db.add(quote)
+        pr.vendor_quotes.append(quote)
+
+    # If this was a rejected PR, resubmit it
+    was_rejected = pr.status == PRStatus.REJECTED
+    if was_rejected:
+        pr.status = PRStatus.SUBMITTED
+        pr.approval_note = None
+
+    await db.commit()
+
+    # Re-fetch the PR with relationships eagerly loaded
+    pr = await _get_pr_full(db, pr_id)
+
+    return APIResponse(
+        success=True,
+        data=PROut.model_validate(pr).model_dump(mode="json"),
+        message=(
+            "Vendor quotes berhasil direvisi dan PR diajukan ulang"
+            if was_rejected
+            else "Vendor quotes berhasil diperbarui"
         ),
     )
 

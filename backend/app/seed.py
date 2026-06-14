@@ -79,15 +79,15 @@ REQUESTER_USERS = [
 # demo shows the full "3-quotation" flow (and the single-quote branch for
 # PRs at/below the QUOTE_THRESHOLD).
 VENDOR_POOL = [
-    ("CV Mitra Teknologi Nusantara", "0811-1010-2020"),
-    ("PT Sinar Komputindo Jaya", "0812-2020-3030"),
-    ("PT Global Niaga Solusi", "0813-3030-4040"),
-    ("CV Berkah Elektronik", "0814-4040-5050"),
-    ("PT Andalan Sistem Integrasi", "0815-5050-6060"),
-    ("PT Cipta Sarana Digital", "0816-6060-7070"),
-    ("CV Sumber Rejeki Teknik", "0817-7070-8080"),
-    ("PT Trijaya Multi Vendor", "0818-8080-9090"),
-    ("PT Karya Mandiri Sentosa", "0819-9090-1010"),
+    ("CV Mitra Teknologi Nusantara", "0811-1010-2020 | sales@mitrateknologi.id"),
+    ("PT Sinar Komputindo Jaya", "0812-2020-3030 | info@sinarkomputindo.co.id"),
+    ("PT Global Niaga Solusi", "0813-3030-4040 | procurement@globalniaga.com"),
+    ("CV Berkah Elektronik", "0814-4040-5050 | order@berkahelektronik.net"),
+    ("PT Andalan Sistem Integrasi", "0815-5050-6060 | sales@andalansystem.id"),
+    ("PT Cipta Sarana Digital", "0816-6060-7070 | marketing@ciptasarana.co.id"),
+    ("CV Sumber Rejeki Teknik", "0817-7070-8080 | supply@sumberrejeki.com"),
+    ("PT Trijaya Multi Vendor", "0818-8080-9090 | business@trijayamulti.id"),
+    ("PT Karya Mandiri Sentosa", "0819-9090-1010 | corporate@karyamandiri.co.id"),
 ]
 
 

@@ -71,6 +71,7 @@ export interface PurchaseRequisition {
   updated_at: string;
   approval_note: string | null;
   requester_id: number;
+  requester_name?: string | null; // Added for admin dashboard display
   line_items?: PRLineItem[];
   vendor_quotes?: VendorQuote[];
 }

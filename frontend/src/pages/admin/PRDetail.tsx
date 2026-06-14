@@ -12,6 +12,7 @@ import type {
   APIResponse,
   PRStatus,
 } from "../../types";
+import { formatDateID as _formatDateID, formatDateTimeID } from "../../utils/formatHelpers";
 
 const STATUS_TIMELINE: { key: PRStatus; label: string }[] = [
   { key: "SUBMITTED", label: "Submitted" },
@@ -241,14 +242,7 @@ export default function AdminPRDetail() {
       minimumFractionDigits: 0,
     }).format(val);
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (dateStr: string) => formatDateTimeID(dateStr);
 
   if (loading) return <p className="text-muted">Memuat detail PR...</p>;
   if (error) return <div className="alert alert-error">{error}</div>;

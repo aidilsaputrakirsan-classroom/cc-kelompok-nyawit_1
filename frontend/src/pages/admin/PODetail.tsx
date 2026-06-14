@@ -7,6 +7,7 @@ import type {
   PurchaseRequisition,
   APIResponse,
 } from "../../types";
+import { formatDateTimeID } from "../../utils/formatHelpers";
 
 export default function AdminPODetail() {
   const { id } = useParams();
@@ -53,14 +54,7 @@ export default function AdminPODetail() {
       minimumFractionDigits: 0,
     }).format(val);
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (dateStr: string) => formatDateTimeID(dateStr);
 
   if (loading) return <p className="text-muted">Memuat detail PO...</p>;
   if (error) return <div className="alert alert-error">{error}</div>;
