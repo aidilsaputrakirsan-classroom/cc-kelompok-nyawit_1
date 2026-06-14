@@ -11,6 +11,7 @@ import type {
   APIResponse,
   PRStatus,
 } from "../../types";
+import { formatDateID, formatDateTimeID } from "../../utils/formatHelpers";
 
 /** Ordered status timeline */
 const STATUS_TIMELINE: { key: PRStatus; label: string }[] = [
@@ -36,6 +37,7 @@ export default function RequesterPRDetail() {
 
   const [pr, setPr] = useState<PurchaseRequisition | null>(null);
   const [po, setPo] = useState<PurchaseOrder | null>(null);
+  const [grn, setGrn] = useState<GRNDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Reason shown when a previously submitted GRN was returned by the admin
@@ -82,6 +84,21 @@ export default function RequesterPRDetail() {
                     })
                     .catch(() => {
                       // No GRN yet — first-time submission, nothing to show
+                    });
+                }
+                // If DOC_SUBMITTED, VERIFIED, or CLOSED, fetch the GRN details
+                if (["DOC_SUBMITTED", "VERIFIED", "CLOSED"].includes(prData.status)) {
+                  return api
+                    .get<APIResponse<GRNDocument>>(
+                      `/grn/by-po/${poRes.data.data.id}`
+                    )
+                    .then((g) => {
+                      if (g.data.data) {
+                        setGrn(g.data.data);
+                      }
+                    })
+                    .catch(() => {
+                      // GRN not found - leave as null
                     });
                 }
               }
@@ -160,14 +177,7 @@ export default function RequesterPRDetail() {
       minimumFractionDigits: 0,
     }).format(val);
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (dateStr: string) => formatDateTimeID(dateStr);
 
   if (loading) return <p className="text-muted">Memuat detail PR...</p>;
   if (error) return <div className="alert alert-error">{error}</div>;
@@ -343,6 +353,69 @@ export default function RequesterPRDetail() {
         </div>
       )}
 
+      {/* Vendor Quotes */}
+      {pr.vendor_quotes && pr.vendor_quotes.length > 0 && (
+        <div className="detail-card">
+          <h3>Penawaran Vendor</h3>
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Nama Vendor</th>
+                  <th>Kontak</th>
+                  <th className="text-right">Harga Penawaran</th>
+                  <th>Tanggal Survei</th>
+                  <th>Status</th>
+                  <th>Bukti</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pr.vendor_quotes.map((quote, idx) => (
+                  <tr key={quote.id} style={quote.is_recommended ? { background: "rgba(59, 130, 246, 0.05)" } : {}}>
+                    <td>{idx + 1}</td>
+                    <td>
+                      <strong>{quote.vendor_name}</strong>
+                      {quote.is_recommended && (
+                        <span style={{ marginLeft: "0.5rem", fontSize: "0.875rem", color: "#2563eb" }}>
+                          (Rekomendasi)
+                        </span>
+                      )}
+                    </td>
+                    <td>{quote.vendor_contact}</td>
+                    <td className="text-right font-mono">
+                      {formatCurrency(quote.quoted_price)}
+                    </td>
+                    <td>{formatDateID(quote.survey_date)}</td>
+                    <td>
+                      {quote.is_recommended ? (
+                        <span style={{ color: "#16a34a", fontWeight: 600 }}>✓ Terpilih</span>
+                      ) : (
+                        <span className="text-muted">Alternatif</span>
+                      )}
+                    </td>
+                    <td>
+                      {quote.survey_evidence_url ? (
+                        <a
+                          href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${quote.survey_evidence_url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-sm btn-outline"
+                        >
+                          Lihat Bukti
+                        </a>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Edit & Cancel Actions (when SUBMITTED, or revise & resubmit when REJECTED) */}
       {(pr.status === "SUBMITTED" || pr.status === "REJECTED") && (
         <div className="action-bar" style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
@@ -424,6 +497,53 @@ export default function RequesterPRDetail() {
               <span className="detail-value">{formatDate(po.issued_at)}</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* GRN Details (when DOC_SUBMITTED, VERIFIED, or CLOSED) */}
+      {grn && (["DOC_SUBMITTED", "VERIFIED", "CLOSED"].includes(pr.status)) && (
+        <div className="detail-card">
+          <h3>Dokumen GRN</h3>
+          <div className="detail-grid">
+            <div className="detail-item">
+              <span className="detail-label">Commercial Invoice</span>
+              <span className="detail-value">
+                <a 
+                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.commercial_invoice_url ?? ''}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-sm btn-outline"
+                >
+                  Lihat Dokumen
+                </a>
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Foto Barang</span>
+              <span className="detail-value">
+                <a 
+                  href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${grn.goods_photo_url ?? ''}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-sm btn-outline"
+                >
+                  Lihat Foto
+                </a>
+              </span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Tanggal Submit</span>
+              <span className="detail-value">{formatDate(grn.submitted_at)}</span>
+            </div>
+          </div>
+          {grn.verification_note && (
+            <div className="detail-section" style={{ marginTop: "1rem" }}>
+              <span className="detail-label">Catatan Verifikasi Admin</span>
+              <div className="alert alert-info" style={{ marginTop: "0.5rem" }}>
+                {grn.verification_note}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

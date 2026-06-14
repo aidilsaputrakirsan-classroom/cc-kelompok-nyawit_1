@@ -3,11 +3,13 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
 import { useToast } from "../../contexts/ToastContext";
 import { useProcurement } from "../../contexts/ProcurementContext";
+import { parseRupiah } from "../../utils/formatHelpers";
 import type {
   PRLineItemInput,
   PRCreatePayload,
   APIResponse,
   PurchaseRequisition,
+  VendorQuote,
 } from "../../types";
 
 const EMPTY_ITEM: PRLineItemInput = {
@@ -15,6 +17,15 @@ const EMPTY_ITEM: PRLineItemInput = {
   quantity: 1,
   unit_of_measure: "pcs",
   estimated_unit_price: 0,
+};
+
+const EMPTY_VENDOR: Omit<VendorQuote, 'id' | 'pr_id'> = {
+  vendor_name: "",
+  vendor_contact: "",
+  quoted_price: 0,
+  survey_date: "",
+  survey_evidence_url: "",
+  is_recommended: false,
 };
 
 export default function RequesterPREdit() {
@@ -26,6 +37,10 @@ export default function RequesterPREdit() {
   const [title, setTitle] = useState("");
   const [justification, setJustification] = useState("");
   const [items, setItems] = useState<PRLineItemInput[]>([{ ...EMPTY_ITEM }]);
+  const [vendors, setVendors] = useState<Array<Omit<VendorQuote, 'id' | 'pr_id'>>>([{ ...EMPTY_VENDOR }]);
+  const [vendorFiles, setVendorFiles] = useState<(File | null)[]>([null]);
+  const [rupiahInputs, setRupiahInputs] = useState<Record<number, string>>({});
+  const [recommendedIdx, setRecommendedIdx] = useState<number>(0);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +71,30 @@ export default function RequesterPREdit() {
               estimated_unit_price: item.estimated_unit_price,
             }))
           );
+        }
+        // Load vendor quotes
+        if (pr.vendor_quotes && pr.vendor_quotes.length > 0) {
+          setVendors(
+            pr.vendor_quotes.map((quote) => ({
+              vendor_name: quote.vendor_name,
+              vendor_contact: quote.vendor_contact,
+              quoted_price: quote.quoted_price,
+              survey_date: quote.survey_date,
+              survey_evidence_url: quote.survey_evidence_url,
+              is_recommended: quote.is_recommended,
+            }))
+          );
+          // Set recommended index
+          const recIdx = pr.vendor_quotes.findIndex((q) => q.is_recommended);
+          if (recIdx >= 0) setRecommendedIdx(recIdx);
+          // Initialize rupiah inputs
+          const rupiahInit: Record<number, string> = {};
+          pr.vendor_quotes.forEach((q, idx) => {
+            if (q.quoted_price > 0) {
+              rupiahInit[idx] = new Intl.NumberFormat('id-ID').format(q.quoted_price);
+            }
+          });
+          setRupiahInputs(rupiahInit);
         }
       })
       .catch(() => setLoadError("Gagal memuat data PR."))
@@ -88,6 +127,48 @@ export default function RequesterPREdit() {
   const getTotal = () =>
     items.reduce((sum, item) => sum + getSubtotal(item), 0);
 
+  // Vendor quote helpers
+  const requiredMinVendors = () => {
+    const total = getTotal();
+    return total >= 50_000_000 ? 3 : 1;
+  };
+
+  const updateVendor = (
+    index: number,
+    field: keyof Omit<VendorQuote, 'id' | 'pr_id'>,
+    value: string | number | boolean | null
+  ) => {
+    setVendors((prev) =>
+      prev.map((v, i) => (i === index ? { ...v, [field]: value } : v))
+    );
+  };
+
+  const updateVendorPrice = (index: number, formattedValue: string) => {
+    const numericValue = parseRupiah(formattedValue);
+    setRupiahInputs((prev) => ({ ...prev, [index]: formattedValue }));
+    updateVendor(index, "quoted_price", numericValue);
+  };
+
+  const addVendor = () => {
+    setVendors((prev) => [...prev, { ...EMPTY_VENDOR }]);
+    setVendorFiles((prev) => [...prev, null]);
+  };
+
+  const removeVendor = (index: number) => {
+    if (vendors.length <= requiredMinVendors()) return;
+    setVendors((prev) => prev.filter((_, i) => i !== index));
+    setVendorFiles((prev) => prev.filter((_, i) => i !== index));
+    setRupiahInputs((prev) => {
+      const newInputs = { ...prev };
+      delete newInputs[index];
+      return newInputs;
+    });
+  };
+
+  const updateVendorFile = (index: number, file: File | null) => {
+    setVendorFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
+  };
+
   // Validation
   const validate = (): string[] => {
     const errs: string[] = [];
@@ -110,6 +191,34 @@ export default function RequesterPREdit() {
       errs.push("Total harus lebih dari 0.");
     }
 
+    // Vendor validation
+    const minVendors = requiredMinVendors();
+    if (vendors.length < minVendors) {
+      errs.push(`Minimal ${minVendors} penawaran vendor diperlukan.`);
+    }
+
+    vendors.forEach((v, i) => {
+      const n = i + 1;
+      if (!v.vendor_name.trim())
+        errs.push(`Vendor #${n}: Nama vendor wajib diisi.`);
+      if (!v.vendor_contact.trim())
+        errs.push(`Vendor #${n}: Kontak vendor wajib diisi.`);
+      if (v.quoted_price <= 0)
+        errs.push(`Vendor #${n}: Harga penawaran harus > 0.`);
+      if (!v.survey_date)
+        errs.push(`Vendor #${n}: Tanggal survei wajib diisi.`);
+      // Check if file is uploaded or existing file exists
+      if (!vendorFiles[i] && (!v.survey_evidence_url || v.survey_evidence_url.trim() === "")) {
+        errs.push(`Vendor #${n}: Bukti survei wajib diunggah.`);
+      }
+    });
+
+    // Check for single recommended vendor
+    const recommendedCount = vendors.filter((v) => v.is_recommended).length;
+    if (recommendedCount !== 1) {
+      errs.push("Harus ada tepat 1 vendor yang direkomendasikan.");
+    }
+
     return errs;
   };
 
@@ -124,23 +233,54 @@ export default function RequesterPREdit() {
     setErrors([]);
     setSubmitting(true);
 
-    const payload: PRCreatePayload = {
-      title: title.trim(),
-      justification: justification.trim(),
-      items: items.map((item) => ({
-        item_name: item.item_name.trim(),
-        quantity: Number(item.quantity),
-        unit_of_measure: item.unit_of_measure.trim(),
-        estimated_unit_price: Number(item.estimated_unit_price),
-      })),
-    };
-
     try {
+      // First, update line items and PR info using existing endpoint
+      const prPayload: PRCreatePayload = {
+        title: title.trim(),
+        justification: justification.trim(),
+        items: items.map((item) => ({
+          item_name: item.item_name.trim(),
+          quantity: Number(item.quantity),
+          unit_of_measure: item.unit_of_measure.trim(),
+          estimated_unit_price: Number(item.estimated_unit_price),
+        })),
+      };
+
       await api.put<APIResponse<PurchaseRequisition>>(
         `/requisitions/${id}`,
-        payload
+        prPayload
       );
-      showToast("success", "Purchase Requisition berhasil diperbarui!");
+
+      // Then, update vendor quotes using new endpoint with multipart/form-data
+      const formData = new FormData();
+      formData.append("vendor_quotes_json", JSON.stringify(
+        vendors.map((v, idx) => ({
+          vendor_name: v.vendor_name.trim(),
+          vendor_contact: v.vendor_contact.trim(),
+          quoted_price: Number(v.quoted_price),
+          survey_date: v.survey_date,
+          is_recommended: idx === recommendedIdx,
+        }))
+      ));
+
+      // Append files
+      vendorFiles.forEach((file, idx) => {
+        if (file) {
+          formData.append(`vendor_quotes[${idx}].survey_evidence`, file);
+        }
+      });
+
+      await api.put<APIResponse<PurchaseRequisition>>(
+        `/requisitions/${id}/vendors`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      showToast("success", "Purchase Requisition dan vendor quotes berhasil diperbarui!");
       invalidate();
       navigate(`/requester/pr/${id}`);
     } catch (err: unknown) {
@@ -339,6 +479,114 @@ export default function RequesterPREdit() {
               </tfoot>
             </table>
           </div>
+        </div>
+
+        {/* Vendor Quotes */}
+        <div className="form-card">
+          <div className="form-card-header">
+            <h3>Penawaran Vendor</h3>
+            <button type="button" className="btn btn-sm btn-primary" onClick={addVendor}>
+              + Tambah Vendor
+            </button>
+          </div>
+
+          {vendors.map((v, index) => (
+            <div
+              key={index}
+              className="form-card"
+              style={{ marginBottom: "1rem", background: "var(--color-surface-alt)" }}
+            >
+              <div className="form-card-header">
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700 }}>
+                  <input
+                    type="radio"
+                    name="recommended_vendor"
+                    checked={recommendedIdx === index}
+                    onChange={() => setRecommendedIdx(index)}
+                  />
+                  Vendor #{index + 1} {recommendedIdx === index && "(Rekomendasi)"}
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-icon btn-danger-ghost"
+                  onClick={() => removeVendor(index)}
+                  disabled={vendors.length <= requiredMinVendors()}
+                  title="Hapus vendor"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="form-group">
+                <label>Nama Vendor *</label>
+                <input
+                  type="text"
+                  value={v.vendor_name}
+                  onChange={(e) => updateVendor(index, "vendor_name", e.target.value)}
+                  placeholder="PT Sumber Makmur"
+                  maxLength={255}
+                />
+              </div>
+              <div className="form-group">
+                <label>Kontak Vendor *</label>
+                <input
+                  type="text"
+                  value={v.vendor_contact}
+                  onChange={(e) => updateVendor(index, "vendor_contact", e.target.value)}
+                  placeholder="Telepon / email / alamat"
+                  maxLength={255}
+                />
+              </div>
+              <div className="form-group">
+                <label>Harga Penawaran (Rp) *</label>
+                <input
+                  type="text"
+                  value={rupiahInputs[index] || (v.quoted_price > 0 ? new Intl.NumberFormat('id-ID').format(v.quoted_price) : '')}
+                  onChange={(e) => updateVendorPrice(index, e.target.value)}
+                  placeholder="Ketik angka, contoh: 1500000"
+                />
+                {v.quoted_price > 0 && (
+                  <small style={{ fontSize: "0.875rem", marginTop: "0.25rem", display: "block", color: "#2563eb", fontWeight: 600 }}>
+                    Format Rupiah: {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(v.quoted_price)}
+                  </small>
+                )}
+              </div>
+              <div className="form-group">
+                <label>Tanggal Survei *</label>
+                <input
+                  type="date"
+                  value={v.survey_date}
+                  onChange={(e) => updateVendor(index, "survey_date", e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Bukti Survei *</label>
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  onChange={(e) => updateVendorFile(index, e.target.files?.[0] ?? null)}
+                />
+                {vendorFiles[index] && (
+                  <span className="text-muted" style={{ fontSize: "0.9375rem" }}>
+                    File baru: {vendorFiles[index]!.name} ({(vendorFiles[index]!.size / 1024).toFixed(0)} KB)
+                  </span>
+                )}
+                {!vendorFiles[index] && v.survey_evidence_url && v.survey_evidence_url.trim() !== "" && (
+                  <span className="text-muted" style={{ fontSize: "0.9375rem" }}>
+                    Menggunakan file existing: <a href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:9395'}/${v.survey_evidence_url}`} target="_blank" rel="noopener noreferrer">Lihat file</a>
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+          
+          {/* Alert validation - positioned right before submit button */}
+          {vendors.length < requiredMinVendors() && (
+            <div className="alert alert-error" style={{ marginTop: "1rem" }}>
+              <strong>Perhatian:</strong> Minimal <strong>{requiredMinVendors()}</strong> penawaran vendor diperlukan untuk total{" "}
+              {formatCurrency(getTotal())}.
+            </div>
+          )}
         </div>
 
         {/* Submit */}

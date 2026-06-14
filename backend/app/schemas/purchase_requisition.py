@@ -62,6 +62,7 @@ class PROut(BaseModel):
     id: int
     pr_number: str
     requester_id: int
+    requester_name: str | None = None  # Added for display purposes
     title: str
     justification: str | None
     status: PRStatus

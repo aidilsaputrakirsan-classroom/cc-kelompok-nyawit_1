@@ -244,7 +244,7 @@ export default function AdminDashboard() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>No. PR</th>
+                  <th style={{ minWidth: "180px" }}>No. PR</th>
                   <th>Requester</th>
                   <th>Judul</th>
                   <th>Total</th>
@@ -256,8 +256,8 @@ export default function AdminDashboard() {
               <tbody>
                 {paginatedPRs.map((pr) => (
                   <tr key={pr.id}>
-                    <td className="font-mono">{pr.pr_number}</td>
-                    <td>ID-{pr.requester_id}</td>
+                    <td className="font-mono" style={{ whiteSpace: "nowrap" }}>{pr.pr_number}</td>
+                    <td>{pr.requester_name || `ID-${pr.requester_id}`}</td>
                     <td>{pr.title}</td>
                     <td className="text-right">
                       {new Intl.NumberFormat("id-ID", {
