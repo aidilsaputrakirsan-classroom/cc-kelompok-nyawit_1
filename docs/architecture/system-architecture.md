@@ -136,3 +136,100 @@ flowchart LR
 
 Detail langkah ada di [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 dan panduan deploy di [railway-deployment.md](../railway-deployment.md).
+
+---
+
+## 5. Microservices Decomposition (Future Architecture)
+
+Saat ini SiCure menggunakan **modular monolith** architecture — semua module dalam satu codebase tapi dengan clear separation of concerns. Jika sistem perlu scale atau tim berkembang, berikut adalah decomposition ke microservices yang direkomendasikan:
+
+### Proposed Service Boundaries
+
+```mermaid
+graph TB
+    subgraph "Current: Modular Monolith"
+        A[Auth Service Module]
+        B[Requisition Service Module]
+        C[PO Service Module]
+        D[GRN Service Module]
+        E[Notification Service Module]
+    end
+    
+    subgraph "Future: Microservices"
+        F[Auth Service<br/>JWT + User Management]
+        G[PR Service<br/>Purchase Requisitions]
+        H[PO Service<br/>Purchase Orders]
+        I[GRN Service<br/>Goods Receipt]
+        J[Notification Service<br/>Email + Alerts]
+    end
+    
+    A -."Refactor into".-> F
+    B -."Refactor into".-> G
+    C -."Refactor into".-> H
+    D -."Refactor into".-> I
+    E -."Refactor into".-> J
+```
+
+### Service Decomposition Rationale
+
+| Service | Responsibility | Database Schema | Communication |
+|---------|---------------|-----------------|---------------|
+| **Auth Service** | User registration, login, JWT issuance, token blacklist | `users`, `token_blacklist` | REST API for token validation |
+| **PR Service** | Create/edit PR, vendor quote management, category filtering | `requisitions`, `line_items`, `vendor_quotes` | Events: `pr.submitted`, `pr.approved` |
+| **PO Service** | Auto-generate PO from approved PR, vendor assignment | `purchase_orders` | Consumes: `pr.approved` event |
+| **GRN Service** | Document upload, verification workflow, status tracking | `grn_records`, `grn_documents` | Consumes: `po.issued` event |
+| **Notification Service** | Email notifications, status change alerts | `notifications`, `email_templates` | Consumes all domain events |
+
+### Inter-Service Communication Patterns
+
+**1. Synchronous (REST/gRPC)**
+- Auth service expose endpoint `/validate-token` untuk service lain verify JWT
+- PR service call Auth service untuk get user details by ID
+
+**2. Asynchronous (Event-Driven via Message Queue)**
+```mermaid
+sequenceDiagram
+    participant PR as PR Service
+    participant MQ as Message Queue<br/>(RabbitMQ/Redis)
+    participant PO as PO Service
+    participant NOTIF as Notification Service
+    
+    PR->>MQ: Publish event: pr.approved {pr_id, vendor_id}
+    MQ->>PO: Deliver event
+    PO->>PO: Generate PO record
+    PO->>MQ: Publish event: po.issued {po_id, pr_id}
+    MQ->>NOTIF: Deliver event
+    NOTIF->>NOTIF: Send email to requester
+```
+
+**3. Shared Database vs Database-per-Service**
+- **Current:** Single PostgreSQL database dengan shared schema
+- **Future:** Each service has own database schema, communicate via APIs/events
+- **Challenge:** Distributed transactions (use Saga pattern untuk maintain consistency)
+
+### Why We Chose Monolith First
+
+1. **Team Size:** 5 orang → coordination overhead microservices tidak worth it
+2. **Complexity:** Business logic belum cukup complex untuk justify service boundaries
+3. **Deployment Simplicity:** Satu deployment unit lebih mudah manage di Railway
+4. **Performance:** No network latency antara modules (in-process calls vs HTTP)
+5. **Development Speed:** Faster iteration tanpa concern service versioning
+
+### When to Migrate to Microservices
+
+Migration justified ketika:
+- ✅ Tim > 10 developers dengan multiple squads
+- ✅ Different scaling requirements (misal: GRN upload butuh more resources)
+- ✅ Independent deployment needs (tim frontend butuh release lebih sering)
+- ✅ Technology diversity (misal: notification service better dengan Node.js)
+- ✅ Fault isolation critical (satu service down tidak affect others)
+
+### Current Modular Design Enables Future Migration
+
+Codebase saat ini sudah structured untuk memudahkan future extraction:
+- **Clear module boundaries:** `app/routers/`, `app/models/`, `app/services/` per domain
+- **Dependency injection:** Services tidak hard-depend pada implementation details
+- **Event-driven patterns:** Status transitions bisa easily convert ke events
+- **API-first design:** External contracts sudah well-defined via Pydantic schemas
+
+Ini berarti migration path jelas: extract module → create separate service → replace in-process calls dengan HTTP/event communication.
