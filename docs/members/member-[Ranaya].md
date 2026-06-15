@@ -4,8 +4,6 @@
 - **Peran:** Lead Frontend
 - **Proyek:** SiCure — Sistem Informasi Procurement
 
-> Reflection ini bersifat **analitis**, bukan deskriptif: jelaskan *keputusan teknis*,
-> *kesulitan*, dan *pelajaran*. Target 1–2 halaman. Ganti teks miring dengan tulisanmu.
 
 ## 1. Ringkasan Kontribusi
 Sebagai Lead Frontend, kontribusi utama saya adalah merapikan arsitektur antarmuka React + TypeScript agar mudah dikembangkan oleh tim. Saya memusatkan pengelolaan state autentikasi (melalui context) dan menguatkan integrasi API menggunakan Axios supaya alur procurement (PR → PO → GRN) bisa ditampilkan dengan konsisten di berbagai halaman. Saya juga menyiapkan pola penanganan error dan verifikasi UI melalui pengujian komponen/utility agar perubahan tidak merusak experience pengguna.
@@ -42,10 +40,3 @@ Alur request user dimulai dari **frontend** yang memanggil endpoint melalui **ga
 
 Dari sisi deploy, proyek dijalankan di lingkungan seperti Railway dengan konfigurasi CI/CD: pipeline membangun image (backend/frontend), menjalankan test (unit/integration), lalu mem-publish perubahan. Bagian QA/DevOps menjadi krusial karena perubahan kecil di skema atau rute bisa memicu error di UI; karena itu saya memperhatikan integrasi kontrak API dan menyiapkan skenario error handling agar sistem tetap usable.
 
-## 4. Pelajaran yang Diambil
-*Apa yang akan kamu lakukan berbeda dari sisi UX/arsitektur frontend?*
-
-## 5. Pemahaman Sistem Secara Keseluruhan
-*Jelaskan alur request user → gateway/nginx → backend → database, peran tiap service,
-cara deploy ke Railway, dan cara kerja CI/CD — termasuk bagian backend/DevOps/QA,
-karena viva bersifat individual.*
