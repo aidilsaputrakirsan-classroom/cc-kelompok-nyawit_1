@@ -4,12 +4,11 @@
 - **Peran:** Lead Frontend
 - **Proyek:** SiCure — Sistem Informasi Procurement
 
-> Reflection ini bersifat **analitis**, bukan deskriptif: jelaskan *keputusan teknis*,
-> *kesulitan*, dan *pelajaran*. Target 1–2 halaman. Ganti teks miring dengan tulisanmu.
+> Reflection ini bersifat **analitis**, bukan deskriptif: jelaskan keputusan teknis,
+> kesulitan, dan pelajaran. Ganti teks miring dengan tulisanmu.
 
 ## 1. Ringkasan Kontribusi
-*Ringkas peran utamamu di frontend (mis. arsitektur komponen React, state/auth context,
-integrasi API via Axios, halaman alur procurement, UI testing dengan Vitest).*
+Sebagai Lead Frontend, saya fokus pada arsitektur antarmuka React dengan TypeScript serta penataan state global untuk autentikasi dan kondisi layanan. Saya merancang struktur komponen agar dapat dipakai ulang lintas fitur (misalnya halaman detail PR/PO/GRN), mengoptimalkan integrasi API menggunakan Axios, dan menyusun alur tampilan yang mengikuti workflow procurement. Saya juga ikut memastikan kualitas melalui pengujian komponen/utility (Vitest) dan pembenahan boundary error supaya pengalaman pengguna tetap stabil saat terjadi kegagalan request.
 
 ## 2. Keputusan Teknis & Alasannya
 *Pilih 2–3 keputusan dan jelaskan "kenapa". Contoh arah:*
